@@ -42,10 +42,12 @@ def get_cascade_models():
         "models/gemma-3-12b-it",
         "models/gemma-3-4b-it"
     ]
+    blocked_words = ("tts", "audio", "image", "vision", "embedding", "aqa", "robotics")
     try:
         available = [
             m.name for m in genai.list_models()
             if 'generateContent' in m.supported_generation_methods
+            and not any(bad in m.name.lower() for bad in blocked_words)
         ]
         ordered = [m for m in priority if m in available]
         others = [m for m in available if m not in ordered and ('gemini' in m.lower() or 'gemma' in m.lower())]
@@ -179,7 +181,7 @@ Keep formatting super clean, structured, and easy to revise on mobile.
                 break
         except Exception as e:
             last_error = str(e)
-            if "429" in last_error or "quota" in last_error.lower() or "404" in last_error:
+            if any(code in last_error.lower() for code in ("429", "quota", "404", "400", "not supported")):
                 continue
             else:
                 st.error(f"❌ AI Error: {last_error}")
