@@ -193,3 +193,4 @@ Keep formatting super clean, structured, and easy to revise on mobile.
 
 st.markdown("---")
 st.caption("🦁 **Auronix learningAI** • Built for Smart Revision • Bookmark this page for instant access!")
+CRITICAL: Never print your thinking, rules, or filter check. Start directly with the final notes.
