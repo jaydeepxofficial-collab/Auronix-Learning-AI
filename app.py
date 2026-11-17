@@ -19,7 +19,7 @@ st.markdown(
 
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Session State Initialization (taaki Test select karte waqt Notes gayab na hon)
+# Session State Initialization
 for key, default in [
     ("study_notes", ""),
     ("topic_context", ""),
@@ -71,29 +71,76 @@ def get_cascade_models():
     except Exception:
         return priority
 
-def generate_with_cascade(prompt_text, stream_mode=True):
+def extract_non_thought_text(response_or_chunk):
+    """Strictly extracts ONLY final answer text and ignores API thought parts."""
+    text_pieces = []
+    try:
+        if getattr(response_or_chunk, "candidates", None):
+            for cand in response_or_chunk.candidates:
+                if getattr(cand, "content", None) and getattr(cand.content, "parts", None):
+                    for p in cand.content.parts:
+                        if getattr(p, "thought", False):
+                            continue
+                        if getattr(p, "text", None):
+                            text_pieces.append(p.text)
+            return "".join(text_pieces)
+    except Exception:
+        pass
+    try:
+        return response_or_chunk.text or ""
+    except Exception:
+        return ""
+
+def strip_leaked_thinking(raw_text, mode="notes"):
+    """Removes any leaked 'User Persona / Thinking Process / Constraint' blocks."""
+    if not raw_text:
+        return ""
+    text = raw_text.strip()
+    if "🚫 STRICT FILTER" in text:
+        idx = text.find("🚫 STRICT FILTER")
+        return text[idx:].strip()
+
+    # Remove <thought>...</thought> tags if present
+    text = re.sub(r'<thought>.*?</thought>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+
+    if mode == "notes":
+        # Jump directly to the first actual content marker
+        markers = [
+            "1. 🎯", "🎯 Core Concept", "## 🎯", "### 🎯",
+            "⚡ ", "📌 ", "📖 ", "1. ", "## 1.", "### 1.", "**1."
+        ]
+        earliest = -1
+        for m in markers:
+            pos = text.find(m)
+            if pos != -1 and (earliest == -1 or pos < earliest):
+                earliest = pos
+        if earliest > 0 and ("persona" in text[:earliest].lower() or "constraint" in text[:earliest].lower() or "thinking" in text[:earliest].lower() or "decision:" in text[:earliest].lower()):
+            text = text[earliest:].strip()
+
+    elif mode == "qa":
+        markers = ["Q1.", "**Q1", "### Q1", "## Q1", "1. **", "1. "]
+        earliest = -1
+        for m in markers:
+            pos = text.find(m)
+            if pos != -1 and (earliest == -1 or pos < earliest):
+                earliest = pos
+        if earliest > 0 and ("persona" in text[:earliest].lower() or "constraint" in text[:earliest].lower() or "thinking" in text[:earliest].lower()):
+            text = text[earliest:].strip()
+
+    return text
+
+def generate_with_cascade(prompt_text, clean_mode="notes"):
     genai.configure(api_key=api_key)
     models_to_try = get_cascade_models()
     last_error = ""
     for model_name in models_to_try:
         try:
             model = genai.GenerativeModel(model_name)
-            if stream_mode:
-                response = model.generate_content(prompt_text, stream=True)
-                full_output = []
-                def stream_chunks():
-                    for chunk in response:
-                        if chunk.text:
-                            full_output.append(chunk.text)
-                            yield chunk.text
-                st.write_stream(stream_chunks())
-                final_text = "".join(full_output)
-                if final_text:
-                    return final_text, None
-            else:
-                response = model.generate_content(prompt_text)
-                if response.text:
-                    return response.text, None
+            response = model.generate_content(prompt_text)
+            raw_out = extract_non_thought_text(response)
+            cleaned_out = strip_leaked_thinking(raw_out, mode=clean_mode)
+            if cleaned_out:
+                return cleaned_out, None
         except Exception as e:
             last_error = str(e)
             if any(code in last_error.lower() for code in ("429", "quota", "404", "400", "not supported")):
@@ -168,35 +215,32 @@ if trigger and source_text:
     st.session_state.quiz_submitted = False
 
     if output_type == "📚 Crisp Exam Notes & Formulas":
-        task_instruction = """Generate high-scoring topper-style exam notes with these 4 clean sections:
+        task_instruction = """Start your response directly with '1. 🎯 Core Concept Summary' and provide these 4 clean sections:
 1. 🎯 Core Concept Summary
 2. 📌 Key Definitions & Laws
 3. 📐 Important Formulas & Units
 4. ⚡ Exam Topper Takeaway"""
     elif output_type == "⚡ 60-Sec Rapid Formula Sheet":
-        task_instruction = """Generate a super-crisp, last-minute revision Formula & Rule Sheet:
-- List every important formula clearly with symbol meanings and SI units.
-- Add 3 common exam traps/mistakes to avoid."""
+        task_instruction = """Start your response directly with '⚡ Rapid Formula & Rule Sheet' and list:
+- Every important formula clearly with symbol meanings and SI units.
+- 3 common exam traps/mistakes to avoid."""
     else:
-        task_instruction = """Explain this topic from zero level to exam mastery in clear, structured points with real-life examples, laws, formulas, and solved numericals."""
+        task_instruction = """Start your response directly with '📖 Complete Concept Mastery' and explain this topic from zero level to exam mastery in clear, structured points with real-life examples, laws, formulas, and solved numericals."""
 
     prompt = f"""
-You are Auronix learningAI, an elite academic & skill-learning assistant.
-Language Style: {lang_choice}
+You are Auronix learningAI. Language Style: {lang_choice}.
+Topic/Input: {source_text[:12000]}
 
-First, verify if the following input is educational, academic, scientific, or skill-based:
-Input: {source_text[:12000]}
+STRICT RULES:
+- DO NOT write any thinking process, planning, persona summary, or filter steps.
+- If the input is pure entertainment (songs, movies, gaming, pranks, comedy, vlogs, gossip), output ONLY:
+🚫 STRICT FILTER: Auronix learningAI only supports educational, academic, and skill-learning content!
+- Otherwise, immediately output the final formatted study material below with zero intro text:
 
-STRICT FILTER RULE:
-If this input is pure entertainment (songs, movies, gaming, pranks, comedy, vlogs, gossip), output ONLY:
-"🚫 STRICT FILTER: Auronix learningAI only supports educational, academic, and skill-learning content!"
-
-If it IS educational/academic, follow this instruction strictly:
 {task_instruction}
-Keep formatting super clean, structured, and easy to revise on mobile.
 """
-    st.markdown("---")
-    notes_res, err = generate_with_cascade(prompt, stream_mode=True)
+    with st.spinner("⚡ Generating Topper-Level Study Notes..."):
+        notes_res, err = generate_with_cascade(prompt, clean_mode="notes")
     if notes_res:
         st.session_state.study_notes = notes_res
         st.session_state.topic_context = source_text[:10000]
@@ -206,11 +250,11 @@ Keep formatting super clean, structured, and easy to revise on mobile.
     elif err:
         st.error(f"❌ AI Error: {err}")
 
-elif st.session_state.study_notes:
+if st.session_state.study_notes:
     st.markdown("---")
     st.markdown(st.session_state.study_notes)
 
-# Download & Test Your Knowledge Section (Sirf valid educational notes ke baad dikhega!)
+# Download & Test Your Knowledge Section
 if st.session_state.study_notes and not st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
     st.download_button(
         label="⬇️ Download Notes (.txt)",
@@ -244,7 +288,8 @@ Topic/Content: {st.session_state.topic_context}
 Difficulty Level: {diff_level}
 Language: {st.session_state.lang_saved}
 
-Return ONLY a valid JSON array (no markdown backticks, no extra text before or after) with exactly {num_q} objects in this format:
+CRITICAL: Output ONLY a valid JSON array. No thinking process, no intro text, no markdown fences.
+Format:
 [
   {{
     "q": "Question text here?",
@@ -256,7 +301,7 @@ Return ONLY a valid JSON array (no markdown backticks, no extra text before or a
 Make sure "answer" matches one of the 4 strings in "options" EXACTLY.
 """
             with st.spinner(f"🧠 Preparing {num_q} {diff_level} MCQs for you..."):
-                raw_json, q_err = generate_with_cascade(quiz_prompt, stream_mode=False)
+                raw_json, q_err = generate_with_cascade(quiz_prompt, clean_mode="json")
                 if raw_json:
                     try:
                         cleaned = re.sub(r'```(?:json)?|```', '', raw_json).strip()
@@ -265,7 +310,7 @@ Make sure "answer" matches one of the 4 strings in "options" EXACTLY.
                         parsed = json.loads(cleaned[start_idx:end_idx])
                         st.session_state.quiz_data = parsed
                     except Exception:
-                        st.session_state.qa_output = raw_json
+                        st.session_state.qa_output = strip_leaked_thinking(raw_json, mode="qa")
                 elif q_err == "BUSY":
                     st.warning("⏳ Free AI engines are busy. Wait 30 seconds and try again!")
                 elif q_err:
@@ -278,10 +323,11 @@ Topic/Content: {st.session_state.topic_context}
 Difficulty Level: {diff_level}
 Language: {st.session_state.lang_saved}
 
-Format cleanly with Q1, Q2... followed by clear, exam-scoring '✅ Answer:' for each question.
+CRITICAL: DO NOT write any thinking process, planning, or intro text. Start directly with 'Q1.'.
+Format cleanly with Q1., Q2.... followed by '✅ Answer:' for each question.
 """
             with st.spinner(f"📝 Preparing {num_q} {diff_level} Q&A for you..."):
-                qa_res, qa_err = generate_with_cascade(qa_prompt, stream_mode=False)
+                qa_res, qa_err = generate_with_cascade(qa_prompt, clean_mode="qa")
                 if qa_res:
                     st.session_state.qa_output = qa_res
                 elif qa_err == "BUSY":
@@ -293,10 +339,9 @@ Format cleanly with Q1, Q2... followed by clear, exam-scoring '✅ Answer:' for 
     if st.session_state.quiz_data:
         st.markdown(f"#### 📝 Live Practice Test ({len(st.session_state.quiz_data)} Questions)")
         with st.form("auronix_quiz_form"):
-            user_answers = {}
             for idx, item in enumerate(st.session_state.quiz_data):
                 st.markdown(f"**Q{idx+1}. {item['q']}**")
-                user_answers[idx] = st.radio(
+                st.radio(
                     f"Select answer for Q{idx+1}:",
                     item["options"],
                     key=f"q_radio_{idx}",
