@@ -28,21 +28,6 @@ def fetch_any_transcript(video_id):
     except Exception:
         return None
 
-def get_working_model():
-    try:
-        available = [
-            m.name for m in genai.list_models()
-            if 'generateContent' in m.supported_generation_methods and 'gemini' in m.name.lower()
-        ]
-        for preferred in ['models/gemini-2.5-flash', 'models/gemini-2.0-flash', 'models/gemini-flash-latest']:
-            if preferred in available:
-                return genai.GenerativeModel(preferred)
-        if available:
-            return genai.GenerativeModel(available[0])
-    except Exception:
-        pass
-    return genai.GenerativeModel("gemini-2.5-flash")
-
 mode = st.radio(
     "Choose Input Method:",
     ["🔗 YouTube Lecture Link", "📝 Paste Topic / Rough Lecture Text (Backup)"],
@@ -88,7 +73,7 @@ if source_text:
     with st.spinner("🧠 Auronix AI is crafting your exam notes..."):
         try:
             genai.configure(api_key=api_key)
-            model = get_working_model()
+            model = genai.GenerativeModel("models/gemini-3.8-flash")
             prompt = f"""
 You are Auronix learningAI, a strict academic & skill-building study assistant.
 First, check if the following content is educational, academic, scientific, or skill-based:
