@@ -34,6 +34,25 @@ def fetch_any_transcript(video_id):
     except Exception:
         return None
 
+def get_cascade_models():
+    priority = [
+        "models/gemini-3.8-flash",
+        "models/gemini-3.8-flash-lite",
+        "models/gemma-3-27b-it",
+        "models/gemma-3-12b-it",
+        "models/gemma-3-4b-it"
+    ]
+    try:
+        available = [
+            m.name for m in genai.list_models()
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        ordered = [m for m in priority if m in available]
+        others = [m for m in available if m not in ordered and ('gemini' in m.lower() or 'gemma' in m.lower())]
+        return ordered + others if (ordered or others) else priority
+    except Exception:
+        return priority
+
 # Input Method Selection
 mode = st.radio(
     "1️⃣ Choose Input Method:",
@@ -41,7 +60,6 @@ mode = st.radio(
     horizontal=True
 )
 
-# Study Output Customization
 col1, col2 = st.columns(2)
 with col1:
     output_type = st.selectbox(
@@ -97,25 +115,23 @@ else:
         trigger = True
 
 if trigger and source_text:
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("models/gemini-3.8-flash")
+    genai.configure(api_key=api_key)
 
-        if output_type == "📚 Crisp Exam Notes & Formulas":
-            task_instruction = """Generate high-scoring exam notes with these 4 clean sections:
+    if output_type == "📚 Crisp Exam Notes & Formulas":
+        task_instruction = """Generate high-scoring exam notes with these 4 clean sections:
 1. 🎯 Core Concept Summary
 2. 📌 Key Definitions & Laws
 3. 📐 Important Formulas & Units
 4. ⚡ Exam Topper Takeaway"""
-        elif output_type == "⚡ 60-Sec Rapid Formula Sheet":
-            task_instruction = """Generate a super-crisp, last-minute revision Formula & Rule Sheet:
+    elif output_type == "⚡ 60-Sec Rapid Formula Sheet":
+        task_instruction = """Generate a super-crisp, last-minute revision Formula & Rule Sheet:
 - List every important formula clearly with symbol meanings and SI units.
 - Add 3 common exam traps/mistakes to avoid."""
-        else:
-            task_instruction = """Generate 5 conceptual & numerical exam-level MCQs (with 4 options A, B, C, D) based on this topic/lecture.
+    else:
+        task_instruction = """Generate 5 conceptual & numerical exam-level MCQs (with 4 options A, B, C, D) based on this topic/lecture.
 At the very bottom, provide a clean '✅ Answer Key & Step-by-Step Solutions' section."""
 
-        prompt = f"""
+    prompt = f"""
 You are Auronix learningAI, an elite academic & skill-learning assistant.
 Language Style: {lang_choice}
 
@@ -130,28 +146,48 @@ If it IS educational/academic, follow this instruction strictly:
 {task_instruction}
 Keep formatting super clean, structured, and easy to revise on mobile.
 """
-        st.markdown("---")
-        response = model.generate_content(prompt, stream=True)
 
-        full_output = []
-        def stream_chunks():
-            for chunk in response:
-                if chunk.text:
-                    full_output.append(chunk.text)
-                    yield chunk.text
+    st.markdown("---")
+    models_to_try = get_cascade_models()
+    success = False
+    last_error = ""
 
-        st.write_stream(stream_chunks())
-        final_text = "".join(full_output)
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt, stream=True)
 
-        if final_text and not final_text.startswith("🚫 STRICT FILTER"):
-            st.download_button(
-                label="⬇️ Download Notes (.txt)",
-                data=final_text,
-                file_name="Auronix_Study_Notes.txt",
-                mime="text/plain"
-            )
-    except Exception as e:
-        st.error(f"❌ AI Error: {str(e)}")
+            full_output = []
+            def stream_chunks():
+                for chunk in response:
+                    if chunk.text:
+                        full_output.append(chunk.text)
+                        yield chunk.text
+
+            st.write_stream(stream_chunks())
+            final_text = "".join(full_output)
+
+            if final_text:
+                success = True
+                if not final_text.startswith("🚫 STRICT FILTER"):
+                    st.download_button(
+                        label="⬇️ Download Notes (.txt)",
+                        data=final_text,
+                        file_name="Auronix_Study_Notes.txt",
+                        mime="text/plain"
+                    )
+                break
+        except Exception as e:
+            last_error = str(e)
+            if "429" in last_error or "quota" in last_error.lower() or "404" in last_error:
+                continue
+            else:
+                st.error(f"❌ AI Error: {last_error}")
+                success = True
+                break
+
+    if not success:
+        st.warning("⏳ All free AI engines are busy right now. Please wait 30 seconds and click Generate again!")
 
 st.markdown("---")
 st.caption("🦁 **Auronix learningAI** • Built for Smart Revision • Bookmark this page for instant access!")
