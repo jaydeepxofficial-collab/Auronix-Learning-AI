@@ -147,6 +147,7 @@ If this input is pure entertainment (songs, movies, gaming, pranks, comedy, vlog
 If it IS educational/academic, follow this instruction strictly:
 {task_instruction}
 Keep formatting super clean, structured, and easy to revise on mobile.
+CRITICAL: Never print your thinking process, rules, persona, or filter analysis. Start directly with the final study notes.
 """
 
     st.markdown("---")
@@ -162,9 +163,22 @@ Keep formatting super clean, structured, and easy to revise on mobile.
             full_output = []
             def stream_chunks():
                 for chunk in response:
-                    if chunk.text:
-                        full_output.append(chunk.text)
-                        yield chunk.text
+                    try:
+                        if getattr(chunk, "candidates", None):
+                            parts = chunk.candidates[0].content.parts
+                            for p in parts:
+                                if getattr(p, "thought", False):
+                                    continue
+                                if getattr(p, "text", None):
+                                    full_output.append(p.text)
+                                    yield p.text
+                        elif getattr(chunk, "text", None):
+                            full_output.append(chunk.text)
+                            yield chunk.text
+                    except Exception:
+                        if getattr(chunk, "text", None):
+                            full_output.append(chunk.text)
+                            yield chunk.text
 
             st.write_stream(stream_chunks())
             final_text = "".join(full_output)
@@ -193,4 +207,3 @@ Keep formatting super clean, structured, and easy to revise on mobile.
 
 st.markdown("---")
 st.caption("🦁 **Auronix learningAI** • Built for Smart Revision • Bookmark this page for instant access!")
-CRITICAL: Never print your thinking, rules, or filter check. Start directly with the final notes.
