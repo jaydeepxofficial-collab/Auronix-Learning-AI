@@ -1,4 +1,4 @@
-"""Auronix learningAI V2.4 — The Dynamic God Mode Engine & Round Robot"""
+"""Auronix learningAI V2.5 — The Perfect Prompt & God Mode Engine"""
 import json
 import os
 import re
@@ -52,7 +52,7 @@ GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
 
 # ==========================================
-# 🎨 UI & STRICT ROUND ROBOT CSS
+# 🎨 UI & ROUND ROBOT CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -113,47 +113,38 @@ st.markdown(f"""
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
-    # 1. GROQ DYNAMIC FETCHER
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            # Ask Groq server for LIVE active models right now
             live_models = client.models.list().data
             best_model = None
             
-            # Pick any active llama model automatically
             for m in live_models:
                 if "llama" in m.id.lower():
                     best_model = m.id
                     break
             
-            # If no llama, pick literally any active model
             if not best_model and live_models:
                 best_model = live_models[0].id
                 
             if best_model:
                 try:
-                    kwargs = {"model": best_model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+                    kwargs = {"model": best_model, "messages": [{"role": "system", "content": "You are Auronix learningAI, an expert IIT-JEE mentor. Always write extremely detailed, formatted markdown notes. Never output just a number."}, {"role": "user", "content": prompt}], "temperature": 0.3}
                     if json_mode:
                         kwargs["response_format"] = {"type": "json_object"}
                     res = client.chat.completions.create(**kwargs)
                     return res.choices[0].message.content, None
                 except Exception as e:
                     errors.append(f"Groq ({best_model}) failed: {str(e)}")
-            else:
-                errors.append("Groq: No live models found for your key.")
         except Exception as e:
             errors.append(f"Groq API Error: {str(e)}")
 
-    # 2. GEMINI DYNAMIC FETCHER (If Groq fails)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            # Ask Google server for LIVE active models right now
             live_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
             best_gemini = None
             
-            # Prefer flash or pro
             for m in live_models:
                 if "flash" in m.lower():
                     best_gemini = m
@@ -164,13 +155,11 @@ def generate_ai(prompt: str, json_mode: bool = False):
             if best_gemini:
                 try:
                     clean_name = best_gemini.replace("models/", "")
-                    model = genai.GenerativeModel(clean_name)
+                    model = genai.GenerativeModel(clean_name, system_instruction="You are Auronix learningAI, an expert IIT-JEE mentor. Always write extremely detailed, formatted markdown notes. Never output just a single calculation.")
                     res = model.generate_content(prompt)
                     return res.text, None
                 except Exception as e:
                     errors.append(f"Gemini ({clean_name}) failed: {str(e)}")
-            else:
-                errors.append("Gemini: No live models found for your key.")
         except Exception as e:
             errors.append(f"Gemini API Error: {str(e)}")
 
@@ -224,7 +213,16 @@ elif mode == "🔗 YouTube Link":
 
 # PROCESS GENERATION
 if source_text:
-    prompt = f"You are Auronix learningAI. Language: {lang_choice}. Task: {output_type}. Based on: {source_text[:15000]}. Provide extremely well-structured markdown notes."
+    prompt = f"""
+    You are Auronix learningAI, an expert AI mentor. 
+    Language: {lang_choice}. 
+    Topic: {source_text[:15000]}. 
+    Task: {output_type}. 
+    
+    CRITICAL INSTRUCTION: You MUST output a complete, highly detailed, beautifully formatted Markdown study guide. 
+    Do NOT output just a calculation or a single line. Use headings (##), bullet points, and LaTeX for formulas.
+    Make it read like a perfect exam revision sheet.
+    """
     with st.spinner("🧠 Scanning for LIVE AI servers..."):
         notes, err = generate_ai(prompt)
         if notes:
@@ -233,8 +231,9 @@ if source_text:
         else:
             st.error(err)
 
-# DISPLAY NOTES & PDF
+# DISPLAY NOTES ON SCREEN & PDF BUTTON
 if st.session_state.study_notes:
+    # ⚡ YAHI CODE TERI SCREEN PAR NOTES DIKHATA HAI ⚡
     st.markdown(st.session_state.study_notes)
     
     if REPORTLAB_OK:
