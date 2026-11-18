@@ -1,4 +1,4 @@
-"""Auronix learningAI V2.5 — The Perfect Prompt & God Mode Engine"""
+"""Auronix learningAI V2.6 — Strict Hardcoded Cascade & Round Robot"""
 import json
 import os
 import re
@@ -103,70 +103,58 @@ st.markdown(f"""
 <div class="auronix-hero">
   <div class="auronix-title">🦁 Auronix learningAI</div>
   <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">AI-powered exam notes, formula sheets, practice tests & smart revision.</p>
-  <div class="auronix-badge">⚡ Dynamic God-Mode Engine Active</div>
+  <div class="auronix-badge">⚡ Stable Engine Active</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 DYNAMIC RADAR ENGINE (Never 404s again!)
+# 🧠 STRICT HARDCODED ENGINE (NO GUESSING)
 # ==========================================
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
+    # 1. GROQ STRICT MODELS
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            live_models = client.models.list().data
-            best_model = None
+            # Only exact chat models, no guard models
+            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
             
-            for m in live_models:
-                if "llama" in m.id.lower():
-                    best_model = m.id
-                    break
-            
-            if not best_model and live_models:
-                best_model = live_models[0].id
-                
-            if best_model:
+            for m in groq_models:
                 try:
-                    kwargs = {"model": best_model, "messages": [{"role": "system", "content": "You are Auronix learningAI, an expert IIT-JEE mentor. Always write extremely detailed, formatted markdown notes. Never output just a number."}, {"role": "user", "content": prompt}], "temperature": 0.3}
+                    kwargs = {"model": m, "messages": [{"role": "system", "content": "You are Auronix learningAI, an expert IIT-JEE mentor. Always write detailed markdown notes. Do not output just math."}, {"role": "user", "content": prompt}], "temperature": 0.3}
                     if json_mode:
                         kwargs["response_format"] = {"type": "json_object"}
                     res = client.chat.completions.create(**kwargs)
                     return res.choices[0].message.content, None
                 except Exception as e:
-                    errors.append(f"Groq ({best_model}) failed: {str(e)}")
+                    errors.append(f"Groq {m} fail: {str(e)}")
+                    continue
         except Exception as e:
             errors.append(f"Groq API Error: {str(e)}")
 
+    # 2. GEMINI STRICT MODELS
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            live_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-            best_gemini = None
+            # Including 3.8 just in case the API demands it again
+            gemini_models = ["gemini-1.5-flash", "gemini-3.8-flash", "gemini-1.5-pro"]
             
-            for m in live_models:
-                if "flash" in m.lower():
-                    best_gemini = m
-                    break
-            if not best_gemini and live_models:
-                best_gemini = live_models[0]
-                
-            if best_gemini:
+            for m in gemini_models:
                 try:
-                    clean_name = best_gemini.replace("models/", "")
-                    model = genai.GenerativeModel(clean_name, system_instruction="You are Auronix learningAI, an expert IIT-JEE mentor. Always write extremely detailed, formatted markdown notes. Never output just a single calculation.")
+                    model = genai.GenerativeModel(m)
                     res = model.generate_content(prompt)
                     return res.text, None
                 except Exception as e:
-                    errors.append(f"Gemini ({clean_name}) failed: {str(e)}")
+                    errors.append(f"Gemini {m} fail: {str(e)}")
+                    continue
         except Exception as e:
             errors.append(f"Gemini API Error: {str(e)}")
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys are missing in Streamlit Secrets!"
     
-    return None, f"❌ Extreme AI Failure: {' | '.join(errors)}"
+    return None, f"❌ Engine Failure. Logs: {' | '.join(errors)}"
 
 # ==========================================
 # 💾 DATABASE & STATE
@@ -221,9 +209,8 @@ if source_text:
     
     CRITICAL INSTRUCTION: You MUST output a complete, highly detailed, beautifully formatted Markdown study guide. 
     Do NOT output just a calculation or a single line. Use headings (##), bullet points, and LaTeX for formulas.
-    Make it read like a perfect exam revision sheet.
     """
-    with st.spinner("🧠 Scanning for LIVE AI servers..."):
+    with st.spinner("🧠 Connecting to AI..."):
         notes, err = generate_ai(prompt)
         if notes:
             st.session_state.study_notes = notes
@@ -233,7 +220,6 @@ if source_text:
 
 # DISPLAY NOTES ON SCREEN & PDF BUTTON
 if st.session_state.study_notes:
-    # ⚡ YAHI CODE TERI SCREEN PAR NOTES DIKHATA HAI ⚡
     st.markdown(st.session_state.study_notes)
     
     if REPORTLAB_OK:
