@@ -1,642 +1,380 @@
-import streamlit as st
-from youtube_transcript_api import YouTubeTranscriptApi
-import google.generativeai as genai
-import re
+"""Auronix learningAI V2 — Streamlit single-file learning platform.
+
+Secrets (Streamlit secrets or environment variables):
+  GEMINI_API_KEY = "..."
+  GROQ_API_KEY = "..."
+"""
+from __future__ import annotations
+
+import concurrent.futures
+import html
 import json
+import os
+import re
+import sqlite3
+import textwrap
+import time
+import uuid
+from datetime import datetime, timezone
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Optional
 
-st.set_page_config(page_title="Auronix learningAI", page_icon="🦁", layout="centered")
+import streamlit as st
 
-# Google Search Console Verification Tag
-st.markdown('<meta name="google-site-verification" content="AjHF7eNYXQYzd50KtS5DVJR3olMBc2UjYkBiw95e_Xs" />', unsafe_allow_html=True)
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+except Exception:
+    YouTubeTranscriptApi = None
 
-# Custom Royal SaaS UI & EMO-Style Animated Robot CSS
+try:
+    from groq import Groq
+except Exception:
+    Groq = None
+
+try:
+    from google import genai
+except Exception:
+    genai = None
+
+try:
+    import bleach
+except Exception:
+    bleach = None
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, ListFlowable, ListItem, Preformatted, KeepTogether
+    REPORTLAB_OK = True
+except Exception:
+    REPORTLAB_OK = False
+
+# ----------------------------- Configuration -----------------------------
+st.set_page_config(page_title="Auronix learningAI V2", page_icon="🦁", layout="centered")
+
+APP_VERSION = "2.0.0"
+MAX_INPUT_CHARS = 18_000
+MAX_NOTES_CHARS = 24_000
+MAX_TRANSCRIPT_CHARS = 45_000
+
+# ⚡ FIXED REAL MODELS: Llama 3.3, Gemma 2, and Gemini 1.5 Flash
+GROQ_PRIMARY_MODEL = os.getenv("AURONIX_GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_SECONDARY_MODEL = os.getenv("AURONIX_GROQ_SECONDARY_MODEL", "gemma2-9b-it")
+GEMINI_MODEL = os.getenv("AURONIX_GEMINI_MODEL", "gemini-1.5-flash")
+DB_PATH = os.getenv("AURONIX_DB_PATH", "auronix.db")
+
+def get_secret(name: str) -> str:
+    try:
+        value = st.secrets.get(name, "")
+    except Exception:
+        value = ""
+    return str(value or os.getenv(name, "")).strip()
+
+GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
+GROQ_API_KEY = get_secret("GROQ_API_KEY")
+
+# ----------------------------- Styling (With EMO Mobile Fix) --------------
 st.markdown("""
 <style>
-    /* Hide default Streamlit branding for pure SaaS look */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+#MainMenu {visibility:hidden;} footer {visibility:hidden;} header {visibility:hidden;}
+.block-container {padding-top:1.4rem; padding-bottom:5rem; max-width:1050px;}
+.auronix-hero {background:linear-gradient(135deg,rgba(255,165,0,.16),rgba(255,94,0,.055));border:1px solid rgba(255,165,0,.38);border-radius:20px;padding:23px 20px;margin-bottom:22px;box-shadow:0 8px 28px rgba(255,140,0,.09);text-align:center;}
+.auronix-title {background:linear-gradient(90deg,#FFB300,#FF6F00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(2rem,6vw,2.65rem);font-weight:950;margin:0;line-height:1.15;}
+.auronix-badge {display:inline-block;background:rgba(255,165,0,.16);color:#FFB300;font-size:12px;font-weight:750;padding:6px 14px;border-radius:20px;margin-top:10px;border:1px solid rgba(255,165,0,.32);}
+div.stButton>button,div.stDownloadButton>button {background:linear-gradient(90deg,#FF9800,#F57C00)!important;color:white!important;font-weight:750!important;border:0!important;border-radius:12px!important;box-shadow:0 4px 14px rgba(255,152,0,.25)!important;}
+div.stButton>button:hover,div.stDownloadButton>button:hover {transform:translateY(-1px);box-shadow:0 6px 18px rgba(255,152,0,.38)!important;}
 
-    /* Hero Banner Styling */
-    .auronix-hero {
-        background: linear-gradient(135deg, rgba(255, 165, 0, 0.14) 0%, rgba(255, 94, 0, 0.06) 100%);
-        border: 1px solid rgba(255, 165, 0, 0.35);
-        border-radius: 18px;
-        padding: 20px 22px;
-        margin-bottom: 25px;
-        box-shadow: 0 8px 25px rgba(255, 140, 0, 0.08);
-        text-align: center;
-    }
-    .auronix-title {
-        background: linear-gradient(90deg, #FFB300, #FF6F00);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.3rem;
-        font-weight: 900;
-        margin: 0;
-        line-height: 1.2;
-    }
-    .auronix-badge {
-        display: inline-block;
-        background: rgba(255, 165, 0, 0.18);
-        color: #FFB300;
-        font-size: 12.5px;
-        font-weight: 700;
-        padding: 5px 14px;
-        border-radius: 20px;
-        margin-top: 10px;
-        border: 1px solid rgba(255, 165, 0, 0.3);
-    }
-
-    /* Glowing Primary Buttons */
-    div.stButton > button {
-        background: linear-gradient(90deg, #FF9800 0%, #F57C00 100%) !important;
-        color: #FFFFFF !important;
-        font-weight: 700 !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.55rem 1.2rem !important;
-        box-shadow: 0 4px 14px rgba(255, 152, 0, 0.3) !important;
-        transition: all 0.25s ease !important;
-    }
-    div.stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.45) !important;
-    }
-
-    /* =========================================
-       EMO-STYLE ROBOT FACE (FIXED FOR MOBILE) 
-       ========================================= */
-    div[data-testid="stPopover"] {
-        position: fixed !important;
-        bottom: 85px !important; /* ⚡ FIXED: Raised above Streamlit bottom bar */
-        right: 20px !important;
-        z-index: 99999 !important;
-    }
-
-    /* The Robot Head */
-    div[data-testid="stPopover"] > button {
-        width: 75px !important;
-        height: 65px !important;
-        background: radial-gradient(circle at 50% 30%, #333333 0%, #050505 80%) !important;
-        border: 4px solid #9CA3AF !important;
-        border-radius: 22px !important;
-        padding: 0 !important;
-        color: transparent !important;
-        box-shadow: -10px 0 0 -2px #5B21B6, 10px 0 0 -2px #5B21B6, 0 10px 25px rgba(0,0,0,0.5) !important;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-        animation: robotFloat 3.5s ease-in-out infinite !important;
-    }
-
-    /* Hidden default label */
-    div[data-testid="stPopover"] > button p { display: none !important; }
-
-    /* Cyan Glowing Eyes */
-    div[data-testid="stPopover"] > button::before,
-    div[data-testid="stPopover"] > button::after {
-        content: '' !important;
-        position: absolute !important;
-        top: 22px !important;
-        width: 14px !important;
-        height: 12px !important;
-        background: #00E5FF !important;
-        border-radius: 4px !important;
-        box-shadow: 0 0 10px #00E5FF, 0 0 18px #00E5FF !important;
-        animation: eyeBlink 4s infinite !important;
-        transition: all 0.2s ease !important;
-    }
-    div[data-testid="stPopover"] > button::before { left: 16px !important; }
-    div[data-testid="stPopover"] > button::after { right: 16px !important; }
-
-    /* Happy Emotions (^ ^) on Hover */
-    div[data-testid="stPopover"] > button:hover::before,
-    div[data-testid="stPopover"] > button:hover::after {
-        height: 6px !important;
-        width: 16px !important;
-        background: transparent !important;
-        border: 4px solid #00E5FF !important;
-        border-bottom: none !important;
-        border-top-left-radius: 12px !important;
-        border-top-right-radius: 12px !important;
-        border-bottom-left-radius: 0 !important;
-        border-bottom-right-radius: 0 !important;
-        box-shadow: none !important;
-        filter: drop-shadow(0 -3px 6px #00E5FF) !important;
-        animation: none !important;
-        top: 24px !important;
-    }
-
-    div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.08) translateY(-5px) !important;
-        box-shadow: -10px 0 0 -2px #7C3AED, 10px 0 0 -2px #7C3AED, 0 15px 30px rgba(0, 229, 255, 0.3) !important;
-    }
-
-    /* Floating "Ask Doubt!" Speech Bubble */
-    div[data-testid="stPopover"]::before {
-        content: "Ask Doubt! ✨";
-        position: absolute;
-        top: -40px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: white;
-        color: #0F172A;
-        padding: 5px 12px;
-        border-radius: 12px;
-        font-size: 13px;
-        font-weight: 800;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        opacity: 0;
-        transition: 0.3s;
-        pointer-events: none;
-        white-space: nowrap;
-    }
-    div[data-testid="stPopover"]::after {
-        content: "";
-        position: absolute;
-        top: -14px;
-        left: 50%;
-        transform: translateX(-50%);
-        border-width: 7px;
-        border-style: solid;
-        border-color: white transparent transparent transparent;
-        opacity: 0;
-        transition: 0.3s;
-        pointer-events: none;
-    }
-    div[data-testid="stPopover"]:hover::before { opacity: 1; top: -46px; }
-    div[data-testid="stPopover"]:hover::after { opacity: 1; top: -20px; }
-
-    @keyframes robotFloat {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-8px); }
-    }
-    @keyframes eyeBlink {
-        0%, 94%, 98%, 100% { height: 12px; transform: scaleY(1); }
-        96% { height: 2px; transform: scaleY(0.2) translateY(4px); }
-    }
+/* ⚡ MOBILE EMO ROBOT POSITION FIX */
+[data-testid="stPopover"] {position:fixed!important;bottom:85px!important;right:20px!important;z-index:99999!important;}
+[data-testid="stPopover"]>button {width:74px!important;height:64px!important;background:radial-gradient(circle at 50% 30%,#333 0%,#050505 80%)!important;border:4px solid #9CA3AF!important;border-radius:22px!important;padding:0!important;color:transparent!important;box-shadow:-9px 0 0 -2px #5B21B6,9px 0 0 -2px #5B21B6,0 10px 25px rgba(0,0,0,.5)!important;animation:robotFloat 3.5s ease-in-out infinite!important;}
+[data-testid="stPopover"]>button p {display:none!important;}
+[data-testid="stPopover"]>button:before,[data-testid="stPopover"]>button:after {content:''!important;position:absolute!important;top:22px!important;width:14px!important;height:12px!important;background:#00E5FF!important;border-radius:4px!important;box-shadow:0 0 10px #00E5FF,0 0 18px #00E5FF!important;animation:eyeBlink 4s infinite!important;}
+[data-testid="stPopover"]>button:before {left:15px!important;} [data-testid="stPopover"]>button:after {right:15px!important;}
+[data-testid="stPopover"]>button:hover {transform:scale(1.07) translateY(-4px)!important;}
+[data-testid="stPopover"]:before {content:"Ask Doubt! ✨";position:absolute;top:-39px;left:50%;transform:translateX(-50%);background:white;color:#111827;padding:5px 11px;border-radius:12px;font-size:12px;font-weight:800;white-space:nowrap;opacity:0;transition:.25s;pointer-events:none;}
+[data-testid="stPopover"]:hover:before {opacity:1;top:-45px;}
+@keyframes robotFloat {0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes eyeBlink {0%,94%,98%,100%{height:12px}96%{height:2px;transform:translateY(4px)}}
+@media(max-width:600px){
+    .block-container{padding-left:1rem;padding-right:1rem;}
+    [data-testid="stPopover"]{right:15px!important;bottom:85px!important;}
+}
 </style>
 """, unsafe_allow_html=True)
 
-# Clean, Royal Hero Header
-st.markdown("""
+engine_label = "🧠 Groq + Gemini Parallel Fusion" if GROQ_API_KEY and GEMINI_API_KEY else (
+    "⚡ Groq AI" if GROQ_API_KEY else ("✨ Gemini AI" if GEMINI_API_KEY else "🔑 Add API keys to activate AI")
+)
+st.markdown(f"""
 <div class="auronix-hero">
-    <div class="auronix-title">🦁 Auronix learningAI</div>
-    <p style="color: #B0B8C4; font-size: 15px; margin: 8px 0 0 0;">
-        AI-Powered Deep Exam Notes, Formula Sheets & Smart Practice Tests in Seconds!
-    </p>
-    <div class="auronix-badge">⚡ JEE • NEET • Class 11 & 12 • Smart AI Tutor</div>
+  <div class="auronix-title">🦁 Auronix learningAI</div>
+  <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">AI-powered exam notes, formula sheets, practice tests & smart revision.</p>
+  <div class="auronix-badge">{html.escape(engine_label)} · V{APP_VERSION}</div>
 </div>
 """, unsafe_allow_html=True)
 
-api_key = st.secrets.get("GEMINI_API_KEY", "")
+# ----------------------------- Database -----------------------------------
+def db_connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, timeout=15, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# Session State Initialization
-for key, default in [
-    ("study_notes", ""),
-    ("topic_context", ""),
-    ("lang_saved", "English (Exam Ready)"),
-    ("quiz_data", None),
-    ("qa_output", ""),
-    ("quiz_submitted", False),
-    ("buddy_chat", [])
-]:
+def init_db() -> None:
+    with db_connect() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS activity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            topic TEXT NOT NULL,
+            score REAL,
+            total INTEGER,
+            details TEXT
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_activity_session ON activity(session_id, created_at)")
+
+def log_activity(activity_type: str, topic: str, score: Optional[float] = None,
+                 total: Optional[int] = None, details: str = "") -> None:
+    with db_connect() as conn:
+        conn.execute(
+            "INSERT INTO activity(session_id,created_at,activity_type,topic,score,total,details) VALUES(?,?,?,?,?,?,?)",
+            (st.session_state.session_id, datetime.now(timezone.utc).isoformat(),
+             activity_type[:40], topic[:180], score, total, details[:1000])
+        )
+
+def get_activity() -> list[sqlite3.Row]:
+    with db_connect() as conn:
+        return conn.execute(
+            "SELECT * FROM activity WHERE session_id=? ORDER BY id DESC LIMIT 100",
+            (st.session_state.session_id,)
+        ).fetchall()
+
+init_db()
+
+# ----------------------------- Session state ------------------------------
+DEFAULTS = {
+    "study_notes": "", "topic_context": "", "lang_saved": "English (Exam Ready)",
+    "quiz_data": None, "quiz_submitted": False, "qa_output": "", "buddy_chat": [],
+    "flashcards": [], "flashcards_topic": "", "exam_started": False,
+    "exam_start_time": None, "session_id": str(uuid.uuid4()), "active_topic": "",
+    "last_quiz_score": None, "last_quiz_total": None,
+}
+for key, value in DEFAULTS.items():
     if key not in st.session_state:
-        st.session_state[key] = default
+        st.session_state[key] = value
 
-def get_video_id(url):
-    pattern = r'(?:v=|\/|youtu\.be\/|shorts\/)([0-9A-Za-z_-]{11})'
-    match = re.search(pattern, url)
-    return match.group(1) if match else None
+# ----------------------------- Helpers ------------------------------------
+def get_video_id(url: str) -> Optional[str]:
+    patterns = [r"(?:v=|youtu\.be/|shorts/|embed/|live/)([A-Za-z0-9_-]{11})"]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
 
-def fetch_any_transcript(video_id):
+def fetch_transcript(video_id: str) -> Optional[str]:
+    if YouTubeTranscriptApi is None:
+        raise RuntimeError("YouTube transcript package is missing. Install youtube-transcript-api.")
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        for transcript in transcript_list:
-            data = transcript.fetch()
-            return " ".join([item['text'] for item in data])
-    except Exception:
-        pass
+        fetched = YouTubeTranscriptApi().fetch(video_id, languages=["hi", "en", "en-IN"])
+        text = " ".join(segment.text for segment in fetched)
+        return text[:MAX_TRANSCRIPT_CHARS] if text.strip() else None
+    except Exception as exc:
+        st.session_state.transcript_error = type(exc).__name__
+        return None
+
+def strip_marker(text: str, marker: str) -> str:
+    text = (text or "").strip()
+    if marker in text:
+        text = text.split(marker, 1)[1].strip()
+    text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.I | re.S).strip()
+    return text
+
+def groq_generate(prompt: str, model: str = GROQ_PRIMARY_MODEL, json_mode: bool = False,
+                  max_tokens: int = 6000) -> Optional[str]:
+    if not GROQ_API_KEY or Groq is None:
+        return None
     try:
-        data = YouTubeTranscriptApi.get_transcript(video_id, languages=['en', 'hi', 'en-IN'])
-        return " ".join([item['text'] for item in data])
+        client = Groq(api_key=GROQ_API_KEY, timeout=75, max_retries=1)
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are Auronix learningAI, a precise and helpful JEE/NEET educator. Do not reveal private reasoning."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.25,
+            "max_tokens": max_tokens,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+        result = client.chat.completions.create(**kwargs)
+        content = result.choices[0].message.content
+        return content.strip() if content else None
     except Exception:
         return None
 
-# ⚡ FIXED: Lightning Fast Generation! Seedha API Call, No Wasting Time!
-
- def get_cascade_models():
-    return [
-        "models/gemini-1.5-flash",
-        "models/gemini-1.5-flash-8b",
-        "models/gemini-1.5-pro",
-        "models/gemini-pro"]
-
-def extract_non_thought_text(response_obj):
-    text_pieces = []
+def gemini_generate(prompt: str, json_mode: bool = False, max_tokens: int = 6000) -> Optional[str]:
+    if not GEMINI_API_KEY or genai is None:
+        return None
     try:
-        if getattr(response_obj, "candidates", None):
-            for cand in response_obj.candidates:
-                if getattr(cand, "content", None) and getattr(cand.content, "parts", None):
-                    for p in cand.content.parts:
-                        if getattr(p, "thought", False):
-                            continue
-                        if getattr(p, "text", None):
-                            text_pieces.append(p.text)
-            return "".join(text_pieces)
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        config: dict[str, Any] = {"temperature": 0.25, "max_output_tokens": max_tokens}
+        if json_mode:
+            config["response_mime_type"] = "application/json"
+        response = client.models.generate_content(
+            model=GEMINI_MODEL, contents=prompt, config=config
+        )
+        output = getattr(response, "text", None)
+        return output.strip() if output else None
     except Exception:
-        pass
+        return None
+
+def generate_ai(prompt: str, mode: str = "notes", json_mode: bool = False) -> tuple[Optional[str], Optional[str]]:
+    if not GROQ_API_KEY and not GEMINI_API_KEY:
+        return None, "API keys are not configured. Add GROQ_API_KEY and/or GEMINI_API_KEY in Streamlit secrets."
+
+    if mode == "notes" and GROQ_API_KEY and GEMINI_API_KEY:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            f_groq = pool.submit(groq_generate, prompt, GROQ_PRIMARY_MODEL, False, 6500)
+            f_gemini = pool.submit(gemini_generate, prompt, False, 6500)
+            groq_out, gemini_out = f_groq.result(), f_gemini.result()
+        candidates = [x for x in [groq_out, gemini_out] if x]
+        if len(candidates) == 2:
+            fusion_prompt = f"""You are the Auronix master editor. Combine these two independent educational drafts into one accurate, coherent, non-repetitive exam guide. Resolve contradictions carefully; do not invent facts. Preserve useful derivations, units, examples and exam traps. If a claim is uncertain, label it for verification.\n\nDRAFT A:\n{candidates[0][:15000]}\n\nDRAFT B:\n{candidates[1][:15000]}\n\nReturn only the final study guide in clean Markdown."""
+            fused = groq_generate(fusion_prompt, GROQ_PRIMARY_MODEL, False, 7500)
+            if fused:
+                return fused[:MAX_NOTES_CHARS], None
+            return max(candidates, key=len)[:MAX_NOTES_CHARS], None
+        if len(candidates) == 1:
+            return candidates[0][:MAX_NOTES_CHARS], None
+        return None, "Both AI providers are temporarily unavailable. Please retry shortly."
+
+    if GROQ_API_KEY:
+        result = groq_generate(prompt, GROQ_PRIMARY_MODEL, json_mode)
+        if result:
+            return result, None
+    if GEMINI_API_KEY:
+        result = gemini_generate(prompt, json_mode)
+        if result:
+            return result, None
+    if GROQ_API_KEY:
+        result = groq_generate(prompt, GROQ_SECONDARY_MODEL, json_mode)
+        if result:
+            return result, None
+    return None, "AI providers could not complete this request. Check model availability, quota and API keys."
+
+def parse_json_object(raw: str) -> dict[str, Any]:
+    cleaned = re.sub(r"```(?:json)?|```", "", raw or "", flags=re.I).strip()
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError("No JSON object found")
+    data = json.loads(cleaned[start:end + 1])
+    if not isinstance(data, dict):
+        raise ValueError("JSON response must be an object")
+    return data
+
+def safe_markdown_html(markdown_text: str) -> str:
     try:
-        return response_obj.text or ""
+        import markdown as md
+        rendered = md.markdown(markdown_text, extensions=["extra", "sane_lists", "tables"])
     except Exception:
-        return ""
-
-def strip_leaked_thinking(raw_text, mode="notes"):
-    if not raw_text:
-        return ""
-    text = raw_text.strip()
-    
-    if "🚫 STRICT FILTER" in text:
-        return text[text.find("🚫 STRICT FILTER"):].strip()
-
-    if mode == "buddy":
-        marker = "===START_BUDDY==="
-    elif mode == "notes":
-        marker = "===START_NOTES==="
+        rendered = "<pre>" + html.escape(markdown_text) + "</pre>"
+    if bleach is not None:
+        allowed_tags = set(bleach.sanitizer.ALLOWED_TAGS) | {
+            "p", "h1", "h2", "h3", "h4", "hr", "br", "pre", "code", "blockquote",
+            "table", "thead", "tbody", "tr", "th", "td", "ul", "ol", "li", "strong", "em"
+        }
+        allowed_attrs = {"a": ["href", "title", "rel"], "th": ["align"], "td": ["align"]}
+        rendered = bleach.clean(rendered, tags=allowed_tags, attributes=allowed_attrs,
+                                protocols=["http", "https", "mailto"], strip=True)
     else:
-        marker = "===START_TEST==="
+        rendered = "<pre>" + html.escape(markdown_text) + "</pre>"
+    return rendered
 
-    if marker in text:
-        text = text.split(marker)[-1].strip()
-    else:
-        text = re.sub(r'<thought>.*?</thought>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
-        
-    return text
+def make_html_download(markdown_text: str, title: str) -> str:
+    safe_title = html.escape(title)
+    body = safe_markdown_html(markdown_text)
+    return f"""<!doctype html><html lang='en'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'><title>{safe_title}</title>
+<style>body{{font:16px/1.7 system-ui,Arial;max-width:900px;margin:30px auto;padding:0 18px;background:#f6f7f9;color:#243041}}main{{background:white;padding:35px;border-radius:14px;box-shadow:0 5px 24px #0001}}h1,h2,h3{{color:#b45309}}pre,code{{background:#f3f4f6;padding:3px 6px;border-radius:5px;overflow-wrap:anywhere}}pre{{padding:14px;overflow:auto}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:8px}}.print{{display:block;margin:0 auto 18px;padding:11px 18px;background:#e67e22;color:white;border:0;border-radius:24px;font-weight:bold}}@media print{{body{{background:white;margin:0}}main{{box-shadow:none;padding:0}}.print{{display:none}}}}</style></head>
+<body><button class='print' onclick='window.print()'>🖨️ Print / Save as PDF</button><main><h1>{safe_title}</h1>{body}<hr><p style='text-align:center;color:#7b8490'>Generated by Auronix learningAI</p></main></body></html>"""
 
-def get_smart_html_download(markdown_text, title="Auronix Study Notes"):
-    html_template = """<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>__TITLE__</title>
-    <style>
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.7; max-width: 850px; margin: 0 auto; padding: 40px 20px; color: #2c3e50; background-color: #f8f9fa; }
-        .document-container { background: #ffffff; padding: 40px 50px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-        h1, h2, h3 { color: #1a252f; margin-top: 30px; padding-bottom: 10px; border-bottom: 2px solid #f1f2f6; }
-        h1 { font-size: 2.2em; color: #d35400; text-align: center; border-bottom: none; }
-        code { background: #fdf2e9; padding: 3px 6px; border-radius: 4px; font-family: 'Courier New', monospace; color: #e67e22; font-weight: bold; }
-        pre { background: #2c3e50; padding: 20px; border-radius: 8px; overflow-x: auto; color: #ecf0f1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
-        blockquote { border-left: 5px solid #f39c12; background: #fffaf0; padding: 15px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; color: #555; font-style: italic; }
-        ul, ol { padding-left: 25px; margin-bottom: 20px; }
-        li { margin-bottom: 8px; }
-        .watermark { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px dashed #bdc3c7; color: #7f8c8d; font-size: 0.9em; }
-        .print-btn { display: block; width: 200px; margin: 0 auto 30px auto; padding: 12px; background: #e67e22; color: white; text-align: center; text-decoration: none; border-radius: 25px; font-weight: bold; cursor: pointer; border: none; box-shadow: 0 4px 6px rgba(230,126,34,0.3); transition: 0.3s; }
-        .print-btn:hover { background: #d35400; transform: translateY(-2px); }
-        @media print { .print-btn { display: none; } body { background: #fff; } .document-container { box-shadow: none; padding: 0; } }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-      MathJax = { tex: { inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']] } };
-    </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
-</head>
-<body>
-    <button class="print-btn" onclick="window.print()">🖨️ Save as PDF / Print</button>
-    <div class="document-container">
-        <div id="content">Formatting your beautiful notes...</div>
-        <div class="watermark">🚀 Generated by <b>Auronix learningAI</b> • The Ultimate Study Companion</div>
-    </div>
-    <textarea id="source" style="display:none;">__MARKDOWN_CONTENT__</textarea>
-    <script>
-        document.getElementById('content').innerHTML = marked.parse(document.getElementById('source').value);
-    </script>
-</body>
-</html>"""
-    html = html_template.replace("__TITLE__", title)
-    html = html.replace("__MARKDOWN_CONTENT__", markdown_text)
-    return html
-
-def generate_with_cascade(prompt_text, clean_mode="notes"):
-    genai.configure(api_key=api_key)
-    models_to_try = get_cascade_models()
-    last_error = ""
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt_text)
-            raw_out = extract_non_thought_text(response)
-            cleaned_out = strip_leaked_thinking(raw_out, mode=clean_mode)
-            if cleaned_out:
-                return cleaned_out, None
-        except Exception as e:
-            last_error = str(e)
-            if any(code in last_error.lower() for code in ("429", "quota", "404", "400", "not supported")):
-                continue
-            return None, last_error
-    return None, "BUSY"
-
-# Input Method Selection
-mode = st.radio(
-    "1️⃣ Choose Input Method:",
-    ["🔗 YouTube Lecture Link", "📝 Topic Name / Lecture Text"],
-    horizontal=True
-)
-
-col1, col2 = st.columns(2)
-with col1:
-    output_type = st.selectbox(
-        "2️⃣ What do you want?",
-        [
-            "📚 Deep Topper Exam Notes & Formulas",
-            "⚡ Complete Formula & Trick Sheet",
-            "📖 Zero-to-Pro Detailed Explanation"
-        ]
-    )
-with col2:
-    lang_choice = st.selectbox(
-        "3️⃣ Explanation Language:",
-        ["English (Exam Ready)", "Hinglish (Easy Concept Clarity)"]
-    )
-
-source_text = ""
-trigger = False
-
-if mode == "🔗 YouTube Lecture Link":
-    youtube_url = st.text_input("🔗 Paste Educational YouTube Lecture Link:")
-    if st.button("✨ Generate Notes Now", use_container_width=True):
-        if not youtube_url:
-            st.warning("⚠️ Please paste a valid YouTube link first!")
-            st.stop()
-        if not api_key:
-            st.error("❌ API Key missing in server settings.")
-            st.stop()
-        video_id = get_video_id(youtube_url)
-        if not video_id:
-            st.error("❌ Invalid YouTube URL. Please check the link.")
-            st.stop()
-        with st.spinner("🔍 Extracting lecture subtitles..."):
-            source_text = fetch_any_transcript(video_id)
-            if not source_text:
-                st.warning("⚠️ Subtitles are disabled/restricted on this video. Switch to **'📝 Topic Name / Lecture Text'** above to generate instant notes anyway!")
-                st.stop()
-        trigger = True
-else:
-    manual_input = st.text_area(
-        "📝 Enter Chapter/Topic Name OR Paste Lecture Notes:",
-        placeholder="Example: Rotational Motion for JEE / Class 11 Work Energy Power...",
-        height=120
-    )
-    if st.button("✨ Generate Notes Now", use_container_width=True):
-        if not manual_input.strip():
-            st.warning("⚠️ Please enter a topic or paste some text first!")
-            st.stop()
-        if not api_key:
-            st.error("❌ API Key missing in server settings.")
-            st.stop()
-        source_text = manual_input.strip()
-        trigger = True
-
-if trigger and source_text:
-    st.session_state.quiz_data = None
-    st.session_state.qa_output = ""
-    st.session_state.quiz_submitted = False
-    st.session_state.buddy_chat = []
-
-    if output_type == "📚 Deep Topper Exam Notes & Formulas":
-        task_instruction = """Write comprehensive, deeply detailed, exam-mastery notes (minimum 800 words) with these 5 thorough sections:
-1. 🎯 Core Concept Summary & Intuition 
-2. 📌 Complete Definitions, Laws & Theorems 
-3. 📐 Exhaustive Formula Bank & SI Units
-4. 🧮 2 Solved Exam-Level Numericals
-5. ⚡ Exam Topper Strategy & Common Traps"""
-    elif output_type == "⚡ Complete Formula & Trick Sheet":
-        task_instruction = """Write an exhaustive Formula & Trick Sheet:
-- Cover EVERY single formula, standard value, and SI unit in detail.
-- Include 5 high-speed exam shortcuts and 5 deadly exam traps to avoid."""
-    else:
-        task_instruction = """Write a complete, deep Zero-to-Pro Chapter Guide:
-- Build every concept step-by-step from basic laws to advanced applications with derivations, formulas, and 3 solved examples."""
-
-    prompt = f"""
-You are Auronix learningAI. Language Style: {lang_choice}.
-Topic/Input: {source_text[:12000]}
-
-CRITICAL INSTRUCTIONS (OBEY STRICTLY):
-1. DO NOT write any thinking process, persona, analysis, or filter steps.
-2. You MUST start your response EXACTLY with this marker: ===START_NOTES===
-3. DO NOT output a single character before the marker.
-4. If the input is pure entertainment (songs, movies, gaming, vlogs), output ONLY: 🚫 STRICT FILTER: Auronix learningAI only supports educational content!
-
-===START_NOTES===
-{task_instruction}
-"""
-    with st.spinner("⚡ Generating Deep Topper-Level Study Notes (Lightning Fast)..."):
-        notes_res, err = generate_with_cascade(prompt, clean_mode="notes")
-    if notes_res:
-        st.session_state.study_notes = notes_res
-        st.session_state.topic_context = source_text[:10000]
-        st.session_state.lang_saved = lang_choice
-    elif err == "BUSY":
-        st.warning("⏳ All free AI engines are busy right now. Please wait 10 seconds and click Generate again!")
-    elif err:
-        st.error(f"❌ AI Error: {err}")
-
-if st.session_state.study_notes:
-    st.markdown("---")
-    st.markdown(st.session_state.study_notes)
-
-# Smart PDF / HTML Download Section
-if st.session_state.study_notes and not st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
-    html_content = get_smart_html_download(st.session_state.study_notes, title="Auronix Study Notes")
-    
-    st.download_button(
-        label="⬇️ Download Smart PDF/Doc (.html)",
-        data=html_content,
-        file_name="Auronix_Study_Notes.html",
-        mime="text/html",
-        help="Opens beautifully on any device. Just click 'Print' inside to save as a clean PDF!"
-    )
-    st.caption("✨ *Tip: Open the downloaded file and click 'Save as PDF' for a professional printout!*")
-
-    st.markdown("---")
-    st.markdown("### 🎯 Test Your Knowledge")
-    st.caption("Apne is topic ki tayyari check karo — apna custom test banao! 🚀")
-
-    t_col1, t_col2, t_col3 = st.columns(3)
-    with t_col1:
-        num_q = st.selectbox("📊 Questions:", [10, 20, 30])
-    with t_col2:
-        diff_level = st.selectbox("🔥 Difficulty:", ["Easy (Basics)", "Medium (Exam Level)", "Hard (JEE / Pro)"])
-    with t_col3:
-        test_format = st.selectbox("📝 Format:", ["Interactive MCQs", "Questions & Answers"])
-
-    if st.button("🚀 Generate Test Now", use_container_width=True):
-        st.session_state.quiz_data = None
-        st.session_state.qa_output = ""
-        st.session_state.quiz_submitted = False
-
-        if test_format == "Interactive MCQs":
-            quiz_prompt = f"""
-Create a {num_q}-question multiple choice quiz strictly based on this topic/content:
-Topic/Content: {st.session_state.topic_context}
-
-Difficulty Level: {diff_level}
-Language: {st.session_state.lang_saved}
-
-CRITICAL: Output ONLY a valid JSON array. No thinking process, no intro text, no markdown fences.
-Format:
-[
-  {{
-    "q": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "answer": "Option A",
-    "explanation": "Short explanation."
-  }}
-]
-"""
-            with st.spinner(f"🧠 Preparing {num_q} {diff_level} MCQs for you..."):
-                raw_json, q_err = generate_with_cascade(quiz_prompt, clean_mode="json")
-                if raw_json:
-                    try:
-                        cleaned = re.sub(r'```(?:json)?|```', '', raw_json).strip()
-                        start_idx = cleaned.find('[')
-                        end_idx = cleaned.rfind(']') + 1
-                        parsed = json.loads(cleaned[start_idx:end_idx])
-                        st.session_state.quiz_data = parsed
-                    except Exception:
-                        st.session_state.qa_output = strip_leaked_thinking(raw_json, mode="qa")
-                elif q_err == "BUSY":
-                    st.warning("⏳ Free AI engines are busy. Wait 10 seconds and try again!")
-                elif q_err:
-                    st.error(f"❌ Test Error: {q_err}")
+def make_pdf(markdown_text: str, title: str) -> bytes:
+    if not REPORTLAB_OK:
+        raise RuntimeError("PDF support is not installed.")
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=17*mm, leftMargin=17*mm,
+                            topMargin=17*mm, bottomMargin=17*mm, title=title)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="AuronixTitle", parent=styles["Title"], textColor=colors.HexColor("#D97706"), alignment=TA_CENTER, spaceAfter=16))
+    styles.add(ParagraphStyle(name="AuronixH2", parent=styles["Heading2"], textColor=colors.HexColor("#B45309"), spaceBefore=12, spaceAfter=6))
+    styles.add(ParagraphStyle(name="AuronixBody", parent=styles["BodyText"], leading=15, spaceAfter=6))
+    story: list[Any] = [Paragraph(html.escape(title), styles["AuronixTitle"])]
+    in_code = False
+    code_lines: list[str] = []
+    for raw_line in markdown_text.splitlines():
+        line = raw_line.rstrip()
+        if line.strip().startswith("```"):
+            if in_code:
+                story.append(Preformatted("\n".join(code_lines), styles["Code"]))
+                story.append(Spacer(1, 6))
+                code_lines = []
+                in_code = False
+            else:
+                in_code = True
+            continue
+        if in_code:
+            code_lines.append(line)
+            continue
+        if not line.strip():
+            story.append(Spacer(1, 4))
+            continue
+        if line.startswith("### "):
+            story.append(Paragraph(html.escape(line[4:]), styles["Heading3"]))
+        elif line.startswith("## "):
+            story.append(Paragraph(html.escape(line[3:]), styles["AuronixH2"]))
+        elif line.startswith("# "):
+            story.append(Paragraph(html.escape(line[2:]), styles["Heading1"]))
+        elif re.match(r"^\s*[-*]\s+", line):
+            text = re.sub(r"^\s*[-*]\s+", "", line)
+            story.append(Paragraph("• " + html.escape(text), styles["AuronixBody"]))
+        elif re.match(r"^\s*\d+[.)]\s+", line):
+            story.append(Paragraph(html.escape(line), styles["AuronixBody"]))
+        elif line.startswith("> "):
+            story.append(Paragraph("<i>" + html.escape(line[2:]) + "</i>", styles["AuronixBody"]))
         else:
-            qa_prompt = f"""
-Create a {num_q}-question practice test (Subjective Questions with Model Answers) based on this topic:
-Topic: {st.session_state.topic_context}
-Difficulty: {diff_level}
-Language: {st.session_state.lang_saved}
+            clean = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", html.escape(line))
+            clean = re.sub(r"`([^`]+)`", r"<font name='Courier'>\1</font>", clean)
+            story.append(Paragraph(clean, styles["AuronixBody"]))
+    if in_code and code_lines:
+        story.append(Preformatted("\n".join(code_lines), styles["Code"]))
+    doc.build(story)
+    return buffer.getvalue()
 
-CRITICAL: You MUST start exactly with ===START_TEST===
-No thinking process before it! Format cleanly with Q1., Q2... followed by '✅ Answer:'.
+def reset_study_state() -> None:
+    st.session_state.quiz_data = None
+    st.session_state.quiz_submitted = False
+    st.session_state.qa_output = ""
+    st.session_state.buddy_chat = []
+    st.session_state.flashcards = []
+    st.session_state.last_quiz_score = None
 
-===START_TEST===
-"""
-            with st.spinner(f"📝 Preparing {num_q} {diff_level} Q&A for you..."):
-                qa_res, qa_err = generate_with_cascade(qa_prompt, clean_mode="qa")
-                if qa_res:
-                    st.session_state.qa_output = qa_res
-                elif qa_err == "BUSY":
-                    st.warning("⏳ Free AI engines are busy. Wait 10 seconds and try again!")
-                elif qa_err:
-                    st.error(f"❌ Test Error: {qa_err}")
+# ----------------------------- Sidebar / Dashboard -----------------------
+with st.sidebar:
+    st.markdown("## 🦁 Auronix Menu")
+    page = st.radio("Navigate", ["Study Studio", "Student Dashboard", "About & Setup"], label_visibility="collapsed")
+    st.divider()
+    st.caption("AI provider status")
+    st.write("Groq:", "🟢 Connected" if GROQ_API_KEY else "⚪ Not configured")
+    st.write("Gemini:", "🟢 Connected" if GEMINI_API_KEY else "⚪ Not configured")
 
-    # Render Interactive MCQs
-    if st.session_state.quiz_data:
-        st.markdown(f"#### 📝 Live Practice Test ({len(st.session_state.quiz_data)} Questions)")
-        with st.form("auronix_quiz_form"):
-            for idx, item in enumerate(st.session_state.quiz_data):
-                st.markdown(f"**Q{idx+1}. {item['q']}**")
-                st.radio(
-                    f"Select answer for Q{idx+1}:",
-                    item["options"],
-                    key=f"q_radio_{idx}",
-                    index=None,
-                    label_visibility="collapsed"
-                )
-            submitted = st.form_submit_button("📊 Submit Test & Check Score", use_container_width=True)
-            if submitted:
-                st.session_state.quiz_submitted = True
-
-        if st.session_state.quiz_submitted:
-            score = 0
-            total = len(st.session_state.quiz_data)
-            for idx, item in enumerate(st.session_state.quiz_data):
-                chosen = st.session_state.get(f"q_radio_{idx}")
-                if chosen == item["answer"]:
-                    score += 1
-
-            st.success(f"🏆 **Your Score: {score} / {total}** ({round((score/total)*100)}%)")
-            for idx, item in enumerate(st.session_state.quiz_data):
-                chosen = st.session_state.get(f"q_radio_{idx}")
-                if chosen == item["answer"]:
-                    st.markdown(f"✅ **Q{idx+1}: Correct!** ({item['answer']}) — *{item.get('explanation', '')}*")
-                else:
-                    st.markdown(f"❌ **Q{idx+1}: Your answer:** `{chosen or 'Not Attempted'}` | **Correct:** `{item['answer']}` — *{item.get('explanation', '')}*")
-
-    # Render Subjective Q&A
-    if st.session_state.qa_output:
-        st.markdown("#### 📖 Practice Questions & Step-by-Step Answers")
-        st.markdown(st.session_state.qa_output)
-        
-        qa_html = get_smart_html_download(st.session_state.qa_output, title="Auronix Practice Test")
-        st.download_button(
-            label="⬇️ Download Smart PDF/Doc (.html)",
-            data=qa_html,
-            file_name="Auronix_Practice_Test.html",
-            mime="text/html",
-            help="Opens beautifully on any device. Just click 'Print' inside to save as PDF!"
-        )
-
-# 🤖 EMO-STYLE FLOATING AI DOUBT ROBOT
-with st.popover(" "):
+if page == "About & Setup":
+    st.subheader("⚙️ Setup Auronix learningAI V2")
     st.markdown("""
-    <div style="background: linear-gradient(135deg, rgba(255,165,0,0.18), rgba(15,23,42,0.95));
-                padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(0,229,255,0.4); margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-        <div style="font-size: 16.5px; font-weight: 900; color: #00E5FF; display: flex; align-items: center; gap: 8px;">
-            🤖 Auronix AI Buddy
-        </div>
-        <div style="font-size: 13.5px; color: #E2E8F0; margin-top: 5px; font-weight: 500;">
-            "How can I help you in the notes? ✨"
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if not st.session_state.study_notes or st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
-        st.info("👋 Pehle upar kisi bhi chapter ya YouTube link se **Notes generate** karo — phir main unhi notes se tera har doubt solve karunga! 🚀")
-    else:
-        for msg in st.session_state.buddy_chat[-4:]:
-            if msg["role"] == "user":
-                st.markdown(f"🧑‍🎓 **You:** {msg['text']}")
-            else:
-                st.success(f"🤖 **Buddy:** {msg['text']}")
-
-        doubt_q = st.text_input(
-            "Type your doubt from these notes:",
-            placeholder="e.g., Formula #2 samjha do / Ismein se JEE trap kya hai?",
-            key="buddy_doubt_input"
-        )
-        if st.button("💡 Solve My Doubt", use_container_width=True, key="buddy_ask_btn"):
-            if not doubt_q.strip():
-                st.warning("Pehle apna doubt likho!")
-            elif not api_key:
-                st.error("API Key missing.")
-            else:
-                buddy_prompt = f"""
-You are Auronix AI Buddy, a super-friendly, smart AI study assistant.
-Language: {st.session_state.lang_saved}.
-The student generated these Study Notes:
----
-{st.session_state.study_notes[:9000]}
----
-Student's Doubt: "{doubt_q.strip()}"
-
-CRITICAL RULES:
-1. Start your answer EXACTLY with ===START_BUDDY=== (nothing before it!).
-2. Answer clearly, concisely, and step-by-step based directly on the generated notes above.
-3. Keep the tone encouraging and easy to understand.
-
-===START_BUDDY===
-"""
-                with st.spinner("🤖 Thinking..."):
-                    ans, b_err = generate_with_cascade(buddy_prompt, clean_mode="buddy")
-                    if ans:
-                        st.session_state.buddy_chat.append({"role": "user", "text": doubt_q.strip()})
-                        st.session_state.buddy_chat.append({"role": "bot", "text": ans})
-                        st.rerun()
-                    elif b_err == "BUSY":
-                        st.warning("⏳ AI busy hai, 10 second baad try karo!")
-                    elif b_err:
-                        st.error(f"Error: {b_err}")
-
-st.markdown("---")
-st.caption("🦁 **Auronix learningAI** • Built for Smart Revision • Bookmark this page for instant access!")
+**1. Install packages**
+```bash
+pip install -r requirements.txt
