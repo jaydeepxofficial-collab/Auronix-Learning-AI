@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from youtube_transcript_api import YouTubeTranscriptApi
 import google.generativeai as genai
 import re
@@ -9,13 +10,157 @@ st.set_page_config(page_title="Auronix learningAI", page_icon="🦁", layout="ce
 # Google Search Console Verification Tag
 st.markdown('<meta name="google-site-verification" content="AjHF7eNYXQYzd50KtS5DVJR3olMBc2UjYkBiw95e_Xs" />', unsafe_allow_html=True)
 
-# Royal Auronix Header
-st.markdown(
-    "<h1 style='color: #FFA500; margin-bottom: 0;'>🦁 Auronix learningAI</h1>"
-    "<p style='color: #A0A0A0; font-size: 15px; margin-top: 4px;'>"
-    "AI-Powered Deep Exam Notes, Formula Sheets & Smart Practice Tests in Seconds!</p>",
-    unsafe_allow_html=True
-)
+# Custom Royal SaaS UI & Cute Floating Robot CSS
+st.markdown("""
+<style>
+    /* Hide default Streamlit branding for pure SaaS look */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Hero Banner Styling */
+    .auronix-hero {
+        background: linear-gradient(135deg, rgba(255, 165, 0, 0.14) 0%, rgba(255, 94, 0, 0.06) 100%);
+        border: 1px solid rgba(255, 165, 0, 0.35);
+        border-radius: 18px;
+        padding: 20px 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 8px 25px rgba(255, 140, 0, 0.08);
+    }
+    .auronix-title {
+        background: linear-gradient(90deg, #FFB300, #FF6F00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.1rem;
+        font-weight: 800;
+        margin: 0;
+        line-height: 1.2;
+    }
+    .auronix-badge {
+        display: inline-block;
+        background: rgba(255, 165, 0, 0.18);
+        color: #FFB300;
+        font-size: 11.5px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        margin-top: 8px;
+        border: 1px solid rgba(255, 165, 0, 0.3);
+    }
+
+    /* Glowing Primary Buttons */
+    div.stButton > button {
+        background: linear-gradient(90deg, #FF9800 0%, #F57C00 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 0.55rem 1.2rem !important;
+        box-shadow: 0 4px 14px rgba(255, 152, 0, 0.3) !important;
+        transition: all 0.25s ease !important;
+    }
+    div.stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.45) !important;
+    }
+
+    /* Floating Cute Robot Popover Button in Bottom-Right Corner */
+    div[data-testid="stPopover"] {
+        position: fixed !important;
+        bottom: 22px !important;
+        right: 22px !important;
+        z-index: 99999 !important;
+    }
+    div[data-testid="stPopover"] > button {
+        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%) !important;
+        color: #FFFFFF !important;
+        border: 2px solid #FFA500 !important;
+        border-radius: 50px !important;
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 8px 25px rgba(255, 165, 0, 0.38) !important;
+        animation: buddyFloat 2.8s ease-in-out infinite !important;
+    }
+    div[data-testid="stPopover"] > button:hover {
+        transform: scale(1.05) !important;
+        border-color: #FFD54F !important;
+    }
+    @keyframes buddyFloat {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-5px); }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Royal Auronix Header + Optional Lion Roar Player
+col_hero, col_roar = st.columns([4, 1])
+with col_hero:
+    st.markdown("""
+    <div class="auronix-hero">
+        <div class="auronix-title">🦁 Auronix learningAI</div>
+        <p style="color: #B0B8C4; font-size: 14.5px; margin: 6px 0 0 0;">
+            AI-Powered Deep Exam Notes, Formula Sheets & Smart Practice Tests in Seconds!
+        </p>
+        <div class="auronix-badge">⚡ JEE • NEET • Class 11 & 12 • Smart AI Tutor</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_roar:
+    # Optional interactive Lion Roar sound button (Synthesized Web Audio Roar - zero external broken links!)
+    components.html("""
+    <div style="display:flex; justify-content:center; align-items:center; height:105px;">
+        <button onclick="playLionRoar()" title="Tap for Auronix Lion Roar!" style="
+            background: linear-gradient(135deg, #FFA500, #E65100);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 10px 12px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255,165,0,0.35);
+            transition: 0.2s;
+            text-align: center;
+        ">🦁<br>🔊 Roar</button>
+    </div>
+    <script>
+    function playLionRoar() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const filter = ctx.createBiquadFilter();
+
+            osc1.type = 'sawtooth';
+            osc2.type = 'triangle';
+            osc1.frequency.setValueAtTime(115, ctx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(52, ctx.currentTime + 1.3);
+            osc2.frequency.setValueAtTime(85, ctx.currentTime);
+            osc2.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 1.3);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(340, ctx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 1.3);
+
+            gain.gain.setValueAtTime(0.01, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 0.18);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.35);
+
+            osc1.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc1.start();
+            osc2.start();
+            osc1.stop(ctx.currentTime + 1.4);
+            osc2.stop(ctx.currentTime + 1.4);
+        } catch(e) {}
+    }
+    </script>
+    """, height=115)
 
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
@@ -26,7 +171,8 @@ for key, default in [
     ("lang_saved", "English (Exam Ready)"),
     ("quiz_data", None),
     ("qa_output", ""),
-    ("quiz_submitted", False)
+    ("quiz_submitted", False),
+    ("buddy_chat", [])
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -99,12 +245,16 @@ def strip_leaked_thinking(raw_text, mode="notes"):
     if "🚫 STRICT FILTER" in text:
         return text[text.find("🚫 STRICT FILTER"):].strip()
 
-    # Bulletproof split method
-    marker = "===START_NOTES===" if mode == "notes" else "===START_TEST==="
+    if mode == "buddy":
+        marker = "===START_BUDDY==="
+    elif mode == "notes":
+        marker = "===START_NOTES==="
+    else:
+        marker = "===START_TEST==="
+
     if marker in text:
         text = text.split(marker)[-1].strip()
     else:
-        # Fallback if AI forgets marker
         text = re.sub(r'<thought>.*?</thought>', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
         
     return text
@@ -150,7 +300,6 @@ def get_smart_html_download(markdown_text, title="Auronix Study Notes"):
     </script>
 </body>
 </html>"""
-    # Safe replacement without f-string crashing on math brackets
     html = html_template.replace("__TITLE__", title)
     html = html.replace("__MARKDOWN_CONTENT__", markdown_text)
     return html
@@ -239,6 +388,7 @@ if trigger and source_text:
     st.session_state.quiz_data = None
     st.session_state.qa_output = ""
     st.session_state.quiz_submitted = False
+    st.session_state.buddy_chat = []
 
     if output_type == "📚 Deep Topper Exam Notes & Formulas":
         task_instruction = """Write comprehensive, deeply detailed, exam-mastery notes (minimum 800 words) with these 5 thorough sections:
@@ -285,8 +435,6 @@ if st.session_state.study_notes:
 
 # Smart PDF / HTML Download Section
 if st.session_state.study_notes and not st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
-    
-    # Generate Beautiful HTML wrapper
     html_content = get_smart_html_download(st.session_state.study_notes, title="Auronix Study Notes")
     
     st.download_button(
@@ -416,6 +564,66 @@ No thinking process before it! Format cleanly with Q1., Q2... followed by '✅ A
             mime="text/html",
             help="Opens beautifully on any device. Just click 'Print' inside to save as PDF!"
         )
+
+# 🤖 CUTE FLOATING CORNER AI DOUBT ROBOT
+with st.popover("🤖✨ Ask Doubt"):
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(255,165,0,0.18), rgba(30,41,59,0.9));
+                padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,165,0,0.4); margin-bottom: 10px;">
+        <div style="font-size: 16px; font-weight: 800; color: #FFB300;">🤖 Auronix Cute Buddy</div>
+        <div style="font-size: 13.5px; color: #F1F5F9; margin-top: 3px;">
+            "How can I help you in the notes? ✨"
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not st.session_state.study_notes or st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
+        st.info("👋 Pehle upar kisi bhi chapter ya YouTube link se **Notes generate** karo — phir main unhi notes se tera har doubt solve karunga! 🚀")
+    else:
+        # Display chat history inside popover
+        for msg in st.session_state.buddy_chat[-4:]:
+            if msg["role"] == "user":
+                st.markdown(f"🧑‍🎓 **You:** {msg['text']}")
+            else:
+                st.success(f"🤖 **Buddy:** {msg['text']}")
+
+        doubt_q = st.text_input(
+            "Type your doubt from these notes:",
+            placeholder="e.g., Formula #2 samjha do / Ismein se JEE trap kya hai?",
+            key="buddy_doubt_input"
+        )
+        if st.button("💡 Solve My Doubt", use_container_width=True, key="buddy_ask_btn"):
+            if not doubt_q.strip():
+                st.warning("Pehle apna doubt likho!")
+            elif not api_key:
+                st.error("API Key missing.")
+            else:
+                buddy_prompt = f"""
+You are Auronix Cute Buddy, a super-friendly, smart AI study assistant.
+Language: {st.session_state.lang_saved}.
+The student generated these Study Notes:
+---
+{st.session_state.study_notes[:9000]}
+---
+Student's Doubt: "{doubt_q.strip()}"
+
+CRITICAL RULES:
+1. Start your answer EXACTLY with ===START_BUDDY=== (nothing before it!).
+2. Answer clearly, concisely, and step-by-step based directly on the generated notes above.
+3. Keep the tone encouraging and easy to understand.
+
+===START_BUDDY===
+"""
+                with st.spinner("🤖 Thinking..."):
+                    ans, b_err = generate_with_cascade(buddy_prompt, clean_mode="buddy")
+                    if ans:
+                        st.session_state.buddy_chat.append({"role": "user", "text": doubt_q.strip()})
+                        st.session_state.buddy_chat.append({"role": "bot", "text": ans})
+                        st.rerun()
+                    elif b_err == "BUSY":
+                        st.warning("⏳ AI busy hai, 15 second baad try karo!")
+                    elif b_err:
+                        st.error(f"Error: {b_err}")
 
 st.markdown("---")
 st.caption("🦁 **Auronix learningAI** • Built for Smart Revision • Bookmark this page for instant access!")
