@@ -1,3 +1,8 @@
 streamlit
 youtube-transcript-api
-google-generativeai
+groq
+google-genai
+bleach
+reportlab
+markdown
+
