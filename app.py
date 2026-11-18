@@ -1,4 +1,4 @@
-"""Auronix learningAI V2.3 — The Immortal Auto-Switch Engine & Round Robot"""
+"""Auronix learningAI V2.4 — The Dynamic God Mode Engine & Round Robot"""
 import json
 import os
 import re
@@ -103,57 +103,81 @@ st.markdown(f"""
 <div class="auronix-hero">
   <div class="auronix-title">🦁 Auronix learningAI</div>
   <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">AI-powered exam notes, formula sheets, practice tests & smart revision.</p>
-  <div class="auronix-badge">⚡ Immortal Auto-Switch Engine Active</div>
+  <div class="auronix-badge">⚡ Dynamic God-Mode Engine Active</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 AUTO-SWITCH CASCADE ENGINE (THE PERMANENT FIX)
+# 🧠 DYNAMIC RADAR ENGINE (Never 404s again!)
 # ==========================================
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
-    # 1. GROQ CASCADE (Tries active models one by one)
+    # 1. GROQ DYNAMIC FETCHER
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]
+            # Ask Groq server for LIVE active models right now
+            live_models = client.models.list().data
+            best_model = None
             
-            for model_name in groq_models:
+            # Pick any active llama model automatically
+            for m in live_models:
+                if "llama" in m.id.lower():
+                    best_model = m.id
+                    break
+            
+            # If no llama, pick literally any active model
+            if not best_model and live_models:
+                best_model = live_models[0].id
+                
+            if best_model:
                 try:
-                    kwargs = {"model": model_name, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+                    kwargs = {"model": best_model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
                     if json_mode:
                         kwargs["response_format"] = {"type": "json_object"}
                     res = client.chat.completions.create(**kwargs)
                     return res.choices[0].message.content, None
                 except Exception as e:
-                    errors.append(f"Groq {model_name}: {str(e)}")
-                    continue # Agar fail hua toh next model try karo!
-        except Exception:
-            pass
+                    errors.append(f"Groq ({best_model}) failed: {str(e)}")
+            else:
+                errors.append("Groq: No live models found for your key.")
+        except Exception as e:
+            errors.append(f"Groq API Error: {str(e)}")
 
-    # 2. GEMINI CASCADE (If Groq completely fails)
+    # 2. GEMINI DYNAMIC FETCHER (If Groq fails)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            gemini_models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"]
+            # Ask Google server for LIVE active models right now
+            live_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            best_gemini = None
             
-            for model_name in gemini_models:
+            # Prefer flash or pro
+            for m in live_models:
+                if "flash" in m.lower():
+                    best_gemini = m
+                    break
+            if not best_gemini and live_models:
+                best_gemini = live_models[0]
+                
+            if best_gemini:
                 try:
-                    model = genai.GenerativeModel(model_name)
+                    clean_name = best_gemini.replace("models/", "")
+                    model = genai.GenerativeModel(clean_name)
                     res = model.generate_content(prompt)
                     return res.text, None
                 except Exception as e:
-                    errors.append(f"Gemini {model_name}: {str(e)}")
-                    continue
-        except Exception:
-            pass
+                    errors.append(f"Gemini ({clean_name}) failed: {str(e)}")
+            else:
+                errors.append("Gemini: No live models found for your key.")
+        except Exception as e:
+            errors.append(f"Gemini API Error: {str(e)}")
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys are missing in Streamlit Secrets!"
     
-    # Agar saare 7 models fail ho jayein tabhi error dikhayega
-    return None, f"❌ AI Error (All Models Failed): {' | '.join(errors)}"
+    return None, f"❌ Extreme AI Failure: {' | '.join(errors)}"
 
 # ==========================================
 # 💾 DATABASE & STATE
@@ -201,7 +225,7 @@ elif mode == "🔗 YouTube Link":
 # PROCESS GENERATION
 if source_text:
     prompt = f"You are Auronix learningAI. Language: {lang_choice}. Task: {output_type}. Based on: {source_text[:15000]}. Provide extremely well-structured markdown notes."
-    with st.spinner("🧠 Connecting to the fastest available AI Engine..."):
+    with st.spinner("🧠 Scanning for LIVE AI servers..."):
         notes, err = generate_ai(prompt)
         if notes:
             st.session_state.study_notes = notes
@@ -213,7 +237,6 @@ if source_text:
 if st.session_state.study_notes:
     st.markdown(st.session_state.study_notes)
     
-    # PDF DOWNLOAD
     if REPORTLAB_OK:
         try:
             buffer = BytesIO()
@@ -234,8 +257,7 @@ if st.session_state.study_notes:
     # FLASHCARDS
     st.markdown("### 🗂️ Smart Flashcards")
     if st.button("✨ Generate 10 Flashcards", use_container_width=True):
-        # Added explicit instructions for JSON so Groq format doesn't fail
-        f_prompt = f"You must respond ONLY with valid JSON. Create 10 short flashcards based on these notes. Language {lang_choice}. Return JSON format EXACTLY like this: {{\"cards\": [{{\"front\": \"question\", \"back\": \"answer\"}}]}}. Notes: {st.session_state.study_notes[:5000]}"
+        f_prompt = f"Respond ONLY with valid JSON. Create 10 short flashcards based on these notes. Language {lang_choice}. Return JSON format EXACTLY like this: {{\"cards\": [{{\"front\": \"question\", \"back\": \"answer\"}}]}}. Notes: {st.session_state.study_notes[:5000]}"
         with st.spinner("Making flashcards..."):
             raw, err = generate_ai(f_prompt, json_mode=True)
             if raw:
@@ -243,7 +265,7 @@ if st.session_state.study_notes:
                     clean_raw = re.sub(r"```(?:json)?|```", "", raw).strip()
                     st.session_state.flashcards = json.loads(clean_raw).get("cards", [])
                 except:
-                    st.error("JSON Error.")
+                    st.error("JSON Parsing Error.")
             else:
                 st.error(err)
                 
@@ -253,7 +275,7 @@ if st.session_state.study_notes:
                 st.write(card.get('back', ''))
 
 # ==========================================
-# 🤖 EMO ROBOT BUDDY (POP-UP)
+# 🤖 EMO ROBOT BUDDY
 # ==========================================
 with st.popover(" "):
     st.markdown("<h4 style='color:#00E5FF'>🤖 Auronix AI Buddy</h4>", unsafe_allow_html=True)
