@@ -223,13 +223,13 @@ def fetch_any_transcript(video_id):
         return None
 
 # ⚡ FIXED: Lightning Fast Generation! Seedha API Call, No Wasting Time!
-def get_cascade_models():
+
+ def get_cascade_models():
     return [
-        "models/gemini-2.5-flash",
         "models/gemini-1.5-flash",
-        "models/gemini-2.0-flash",
-        "models/gemma-2-27b-it"
-    ]
+        "models/gemini-1.5-flash-8b",
+        "models/gemini-1.5-pro",
+        "models/gemini-pro"]
 
 def extract_non_thought_text(response_obj):
     text_pieces = []
