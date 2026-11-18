@@ -1,4 +1,4 @@
-"""Auronix learningAI V2.2 — Bulletproof Models & Round Robot"""
+"""Auronix learningAI V2.3 — The Immortal Auto-Switch Engine & Round Robot"""
 import json
 import os
 import re
@@ -52,7 +52,7 @@ GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
 
 # ==========================================
-# 🎨 UI & STRICT ROUND ROBOT CSS FIX
+# 🎨 UI & STRICT ROUND ROBOT CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -103,53 +103,57 @@ st.markdown(f"""
 <div class="auronix-hero">
   <div class="auronix-title">🦁 Auronix learningAI</div>
   <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">AI-powered exam notes, formula sheets, practice tests & smart revision.</p>
-  <div class="auronix-badge">⚡ Lightning Fast Engine Active</div>
+  <div class="auronix-badge">⚡ Immortal Auto-Switch Engine Active</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 ROCK-SOLID AI ENGINE (MODEL 404 FIX)
+# 🧠 AUTO-SWITCH CASCADE ENGINE (THE PERMANENT FIX)
 # ==========================================
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
-    # 1. TRY GROQ (With Fallback Models)
+    # 1. GROQ CASCADE (Tries active models one by one)
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            kwargs = {"model": "llama-3.1-70b-versatile", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
-            if json_mode:
-                kwargs["response_format"] = {"type": "json_object"}
+            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768"]
             
-            try:
-                res = client.chat.completions.create(**kwargs)
-            except Exception: # Fallback if 70b is down
-                kwargs["model"] = "llama3-8b-8192"
-                res = client.chat.completions.create(**kwargs)
-                
-            return res.choices[0].message.content, None
-        except Exception as e:
-            errors.append(f"Groq: {str(e)}")
+            for model_name in groq_models:
+                try:
+                    kwargs = {"model": model_name, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+                    if json_mode:
+                        kwargs["response_format"] = {"type": "json_object"}
+                    res = client.chat.completions.create(**kwargs)
+                    return res.choices[0].message.content, None
+                except Exception as e:
+                    errors.append(f"Groq {model_name}: {str(e)}")
+                    continue # Agar fail hua toh next model try karo!
+        except Exception:
+            pass
 
-    # 2. TRY GEMINI (With Fallback Models)
+    # 2. GEMINI CASCADE (If Groq completely fails)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            try:
-                model = genai.GenerativeModel("gemini-1.5-flash") # Removed 'models/' prefix
-                res = model.generate_content(prompt)
-            except Exception:
-                model = genai.GenerativeModel("gemini-pro") # Fallback
-                res = model.generate_content(prompt)
-                
-            return res.text, None
-        except Exception as e:
-            errors.append(f"Gemini: {str(e)}")
+            gemini_models = ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"]
+            
+            for model_name in gemini_models:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    res = model.generate_content(prompt)
+                    return res.text, None
+                except Exception as e:
+                    errors.append(f"Gemini {model_name}: {str(e)}")
+                    continue
+        except Exception:
+            pass
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys are missing in Streamlit Secrets!"
     
-    return None, f"❌ AI Error: {' | '.join(errors)}"
+    # Agar saare 7 models fail ho jayein tabhi error dikhayega
+    return None, f"❌ AI Error (All Models Failed): {' | '.join(errors)}"
 
 # ==========================================
 # 💾 DATABASE & STATE
@@ -197,7 +201,7 @@ elif mode == "🔗 YouTube Link":
 # PROCESS GENERATION
 if source_text:
     prompt = f"You are Auronix learningAI. Language: {lang_choice}. Task: {output_type}. Based on: {source_text[:15000]}. Provide extremely well-structured markdown notes."
-    with st.spinner("🧠 Generating your premium study guide..."):
+    with st.spinner("🧠 Connecting to the fastest available AI Engine..."):
         notes, err = generate_ai(prompt)
         if notes:
             st.session_state.study_notes = notes
@@ -230,7 +234,8 @@ if st.session_state.study_notes:
     # FLASHCARDS
     st.markdown("### 🗂️ Smart Flashcards")
     if st.button("✨ Generate 10 Flashcards", use_container_width=True):
-        f_prompt = f"Create 10 short flashcards based on these notes. Language {lang_choice}. Return JSON format: {{'cards': [{{'front': 'question', 'back': 'answer'}}]}}. Notes: {st.session_state.study_notes[:5000]}"
+        # Added explicit instructions for JSON so Groq format doesn't fail
+        f_prompt = f"You must respond ONLY with valid JSON. Create 10 short flashcards based on these notes. Language {lang_choice}. Return JSON format EXACTLY like this: {{\"cards\": [{{\"front\": \"question\", \"back\": \"answer\"}}]}}. Notes: {st.session_state.study_notes[:5000]}"
         with st.spinner("Making flashcards..."):
             raw, err = generate_ai(f_prompt, json_mode=True)
             if raw:
