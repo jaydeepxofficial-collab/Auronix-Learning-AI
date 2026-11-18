@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from youtube_transcript_api import YouTubeTranscriptApi
 import google.generativeai as genai
 import re
@@ -10,7 +9,7 @@ st.set_page_config(page_title="Auronix learningAI", page_icon="🦁", layout="ce
 # Google Search Console Verification Tag
 st.markdown('<meta name="google-site-verification" content="AjHF7eNYXQYzd50KtS5DVJR3olMBc2UjYkBiw95e_Xs" />', unsafe_allow_html=True)
 
-# Custom Royal SaaS UI & Cute Floating Robot CSS
+# Custom Royal SaaS UI & EMO-Style Animated Robot CSS
 st.markdown("""
 <style>
     /* Hide default Streamlit branding for pure SaaS look */
@@ -24,15 +23,16 @@ st.markdown("""
         border: 1px solid rgba(255, 165, 0, 0.35);
         border-radius: 18px;
         padding: 20px 22px;
-        margin-bottom: 18px;
+        margin-bottom: 25px;
         box-shadow: 0 8px 25px rgba(255, 140, 0, 0.08);
+        text-align: center;
     }
     .auronix-title {
         background: linear-gradient(90deg, #FFB300, #FF6F00);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.1rem;
-        font-weight: 800;
+        font-size: 2.3rem;
+        font-weight: 900;
         margin: 0;
         line-height: 1.2;
     }
@@ -40,11 +40,11 @@ st.markdown("""
         display: inline-block;
         background: rgba(255, 165, 0, 0.18);
         color: #FFB300;
-        font-size: 11.5px;
-        font-weight: 600;
-        padding: 4px 10px;
+        font-size: 12.5px;
+        font-weight: 700;
+        padding: 5px 14px;
         border-radius: 20px;
-        margin-top: 8px;
+        margin-top: 10px;
         border: 1px solid rgba(255, 165, 0, 0.3);
     }
 
@@ -64,103 +64,135 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(255, 152, 0, 0.45) !important;
     }
 
-    /* Floating Cute Robot Popover Button in Bottom-Right Corner */
+    /* =========================================
+       EMO-STYLE ROBOT FACE (PURE CSS MAGIC!) 
+       ========================================= */
     div[data-testid="stPopover"] {
         position: fixed !important;
-        bottom: 22px !important;
-        right: 22px !important;
+        bottom: 35px !important;
+        right: 35px !important;
         z-index: 99999 !important;
     }
+
+    /* The Robot Head */
     div[data-testid="stPopover"] > button {
-        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%) !important;
-        color: #FFFFFF !important;
-        border: 2px solid #FFA500 !important;
-        border-radius: 50px !important;
-        padding: 10px 16px !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        box-shadow: 0 8px 25px rgba(255, 165, 0, 0.38) !important;
-        animation: buddyFloat 2.8s ease-in-out infinite !important;
+        width: 75px !important;
+        height: 65px !important;
+        background: radial-gradient(circle at 50% 30%, #333333 0%, #050505 80%) !important; /* Glossy dark screen */
+        border: 4px solid #9CA3AF !important; /* Silver frame */
+        border-radius: 22px !important; /* Rounded square face */
+        padding: 0 !important;
+        color: transparent !important; /* Hide default text */
+        /* Headphones using purple box-shadow on sides */
+        box-shadow: -10px 0 0 -2px #5B21B6, 10px 0 0 -2px #5B21B6, 0 10px 25px rgba(0,0,0,0.5) !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+        animation: robotFloat 3.5s ease-in-out infinite !important;
     }
+
+    /* Hidden default label handling */
+    div[data-testid="stPopover"] > button p { display: none !important; }
+
+    /* Cyan Glowing Eyes (Normal State) */
+    div[data-testid="stPopover"] > button::before,
+    div[data-testid="stPopover"] > button::after {
+        content: '' !important;
+        position: absolute !important;
+        top: 22px !important;
+        width: 14px !important;
+        height: 12px !important;
+        background: #00E5FF !important; /* Cyan Neon */
+        border-radius: 4px !important; /* Slightly rounded square eyes */
+        box-shadow: 0 0 10px #00E5FF, 0 0 18px #00E5FF !important;
+        animation: eyeBlink 4s infinite !important;
+        transition: all 0.2s ease !important;
+    }
+    /* Left Eye */
+    div[data-testid="stPopover"] > button::before { left: 16px !important; }
+    /* Right Eye */
+    div[data-testid="stPopover"] > button::after { right: 16px !important; }
+
+    /* Happy Emotions (^ ^) on Hover */
+    div[data-testid="stPopover"] > button:hover::before,
+    div[data-testid="stPopover"] > button:hover::after {
+        height: 6px !important;
+        width: 16px !important;
+        background: transparent !important;
+        border: 4px solid #00E5FF !important;
+        border-bottom: none !important;
+        border-top-left-radius: 12px !important;
+        border-top-right-radius: 12px !important;
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        box-shadow: none !important;
+        filter: drop-shadow(0 -3px 6px #00E5FF) !important;
+        animation: none !important; /* Stop blinking when happy */
+        top: 24px !important;
+    }
+
+    /* Robot interaction hover effect */
     div[data-testid="stPopover"] > button:hover {
-        transform: scale(1.05) !important;
-        border-color: #FFD54F !important;
+        transform: scale(1.08) translateY(-5px) !important;
+        box-shadow: -10px 0 0 -2px #7C3AED, 10px 0 0 -2px #7C3AED, 0 15px 30px rgba(0, 229, 255, 0.3) !important;
     }
-    @keyframes buddyFloat {
+
+    /* Floating "Ask Doubt!" Speech Bubble */
+    div[data-testid="stPopover"]::before {
+        content: "Ask Doubt! ✨";
+        position: absolute;
+        top: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        color: #0F172A;
+        padding: 5px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 800;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        opacity: 0;
+        transition: 0.3s;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    /* Speech Bubble Triangle Pointer */
+    div[data-testid="stPopover"]::after {
+        content: "";
+        position: absolute;
+        top: -14px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 7px;
+        border-style: solid;
+        border-color: white transparent transparent transparent;
+        opacity: 0;
+        transition: 0.3s;
+        pointer-events: none;
+    }
+    div[data-testid="stPopover"]:hover::before { opacity: 1; top: -46px; }
+    div[data-testid="stPopover"]:hover::after { opacity: 1; top: -20px; }
+
+    /* Animations */
+    @keyframes robotFloat {
         0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-5px); }
+        50% { transform: translateY(-8px); }
+    }
+    @keyframes eyeBlink {
+        0%, 94%, 98%, 100% { height: 12px; transform: scaleY(1); }
+        96% { height: 2px; transform: scaleY(0.2) translateY(4px); }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Royal Auronix Header + Optional Lion Roar Player
-col_hero, col_roar = st.columns([4, 1])
-with col_hero:
-    st.markdown("""
-    <div class="auronix-hero">
-        <div class="auronix-title">🦁 Auronix learningAI</div>
-        <p style="color: #B0B8C4; font-size: 14.5px; margin: 6px 0 0 0;">
-            AI-Powered Deep Exam Notes, Formula Sheets & Smart Practice Tests in Seconds!
-        </p>
-        <div class="auronix-badge">⚡ JEE • NEET • Class 11 & 12 • Smart AI Tutor</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_roar:
-    # Optional interactive Lion Roar sound button (Synthesized Web Audio Roar - zero external broken links!)
-    components.html("""
-    <div style="display:flex; justify-content:center; align-items:center; height:105px;">
-        <button onclick="playLionRoar()" title="Tap for Auronix Lion Roar!" style="
-            background: linear-gradient(135deg, #FFA500, #E65100);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            padding: 10px 12px;
-            font-weight: 700;
-            font-size: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(255,165,0,0.35);
-            transition: 0.2s;
-            text-align: center;
-        ">🦁<br>🔊 Roar</button>
-    </div>
-    <script>
-    function playLionRoar() {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc1 = ctx.createOscillator();
-            const osc2 = ctx.createOscillator();
-            const gain = ctx.createGain();
-            const filter = ctx.createBiquadFilter();
-
-            osc1.type = 'sawtooth';
-            osc2.type = 'triangle';
-            osc1.frequency.setValueAtTime(115, ctx.currentTime);
-            osc1.frequency.exponentialRampToValueAtTime(52, ctx.currentTime + 1.3);
-            osc2.frequency.setValueAtTime(85, ctx.currentTime);
-            osc2.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 1.3);
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(340, ctx.currentTime);
-            filter.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 1.3);
-
-            gain.gain.setValueAtTime(0.01, ctx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.45, ctx.currentTime + 0.18);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.35);
-
-            osc1.connect(filter);
-            osc2.connect(filter);
-            filter.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc1.start();
-            osc2.start();
-            osc1.stop(ctx.currentTime + 1.4);
-            osc2.stop(ctx.currentTime + 1.4);
-        } catch(e) {}
-    }
-    </script>
-    """, height=115)
+# Clean, Royal Hero Header
+st.markdown("""
+<div class="auronix-hero">
+    <div class="auronix-title">🦁 Auronix learningAI</div>
+    <p style="color: #B0B8C4; font-size: 15px; margin: 8px 0 0 0;">
+        AI-Powered Deep Exam Notes, Formula Sheets & Smart Practice Tests in Seconds!
+    </p>
+    <div class="auronix-badge">⚡ JEE • NEET • Class 11 & 12 • Smart AI Tutor</div>
+</div>
+""", unsafe_allow_html=True)
 
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
@@ -237,7 +269,6 @@ def extract_non_thought_text(response_obj):
         return ""
 
 def strip_leaked_thinking(raw_text, mode="notes"):
-    """ABSOLUTE GUILLOTINE METHOD: Cuts everything before the exact marker!"""
     if not raw_text:
         return ""
     text = raw_text.strip()
@@ -260,7 +291,6 @@ def strip_leaked_thinking(raw_text, mode="notes"):
     return text
 
 def get_smart_html_download(markdown_text, title="Auronix Study Notes"):
-    """Wraps output in a professional HTML document with MathJax for beautiful formulas."""
     html_template = """<!DOCTYPE html>
 <html>
 <head>
@@ -565,13 +595,15 @@ No thinking process before it! Format cleanly with Q1., Q2... followed by '✅ A
             help="Opens beautifully on any device. Just click 'Print' inside to save as PDF!"
         )
 
-# 🤖 CUTE FLOATING CORNER AI DOUBT ROBOT
-with st.popover("🤖✨ Ask Doubt"):
+# 🤖 EMO-STYLE FLOATING AI DOUBT ROBOT (CSS takes over the empty string)
+with st.popover(" "):
     st.markdown("""
-    <div style="background: linear-gradient(135deg, rgba(255,165,0,0.18), rgba(30,41,59,0.9));
-                padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,165,0,0.4); margin-bottom: 10px;">
-        <div style="font-size: 16px; font-weight: 800; color: #FFB300;">🤖 Auronix Cute Buddy</div>
-        <div style="font-size: 13.5px; color: #F1F5F9; margin-top: 3px;">
+    <div style="background: linear-gradient(135deg, rgba(255,165,0,0.18), rgba(15,23,42,0.95));
+                padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(0,229,255,0.4); margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        <div style="font-size: 16.5px; font-weight: 900; color: #00E5FF; display: flex; align-items: center; gap: 8px;">
+            🤖 Auronix AI Buddy
+        </div>
+        <div style="font-size: 13.5px; color: #E2E8F0; margin-top: 5px; font-weight: 500;">
             "How can I help you in the notes? ✨"
         </div>
     </div>
@@ -580,7 +612,6 @@ with st.popover("🤖✨ Ask Doubt"):
     if not st.session_state.study_notes or st.session_state.study_notes.startswith("🚫 STRICT FILTER"):
         st.info("👋 Pehle upar kisi bhi chapter ya YouTube link se **Notes generate** karo — phir main unhi notes se tera har doubt solve karunga! 🚀")
     else:
-        # Display chat history inside popover
         for msg in st.session_state.buddy_chat[-4:]:
             if msg["role"] == "user":
                 st.markdown(f"🧑‍🎓 **You:** {msg['text']}")
@@ -599,7 +630,7 @@ with st.popover("🤖✨ Ask Doubt"):
                 st.error("API Key missing.")
             else:
                 buddy_prompt = f"""
-You are Auronix Cute Buddy, a super-friendly, smart AI study assistant.
+You are Auronix AI Buddy, a super-friendly, smart AI study assistant.
 Language: {st.session_state.lang_saved}.
 The student generated these Study Notes:
 ---
