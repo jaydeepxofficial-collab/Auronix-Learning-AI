@@ -1,4 +1,4 @@
-"""Auronix learningAI V2.6 — Strict Hardcoded Cascade & Round Robot"""
+"""Auronix learningAI V2.7 — Smart Radar Engine & Round Robot"""
 import json
 import os
 import re
@@ -21,11 +21,6 @@ try:
     import google.generativeai as genai
 except Exception:
     genai = None
-
-try:
-    import bleach
-except Exception:
-    bleach = None
 
 try:
     from reportlab.lib import colors
@@ -52,7 +47,7 @@ GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
 
 # ==========================================
-# 🎨 UI & ROUND ROBOT CSS
+# 🎨 UI & STRICT ROUND ROBOT CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -103,50 +98,60 @@ st.markdown(f"""
 <div class="auronix-hero">
   <div class="auronix-title">🦁 Auronix learningAI</div>
   <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">AI-powered exam notes, formula sheets, practice tests & smart revision.</p>
-  <div class="auronix-badge">⚡ Stable Engine Active</div>
+  <div class="auronix-badge">⚡ Smart Radar Engine Active</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 STRICT HARDCODED ENGINE (NO GUESSING)
+# 🧠 SMART RADAR ENGINE (Filters out Guard models & handles Limits)
 # ==========================================
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
-    # 1. GROQ STRICT MODELS
+    # 1. GROQ (Smart Filter)
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            # Only exact chat models, no guard models
-            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
+            live_models = client.models.list().data
             
-            for m in groq_models:
-                try:
-                    kwargs = {"model": m, "messages": [{"role": "system", "content": "You are Auronix learningAI, an expert IIT-JEE mentor. Always write detailed markdown notes. Do not output just math."}, {"role": "user", "content": prompt}], "temperature": 0.3}
-                    if json_mode:
-                        kwargs["response_format"] = {"type": "json_object"}
-                    res = client.chat.completions.create(**kwargs)
-                    return res.choices[0].message.content, None
-                except Exception as e:
-                    errors.append(f"Groq {m} fail: {str(e)}")
-                    continue
+            # Find ANY valid chat model (skip guard and whisper)
+            valid_chat_models = [m.id for m in live_models if "guard" not in m.id.lower() and "whisper" not in m.id.lower()]
+            
+            if valid_chat_models:
+                for model_id in valid_chat_models:
+                    try:
+                        kwargs = {
+                            "model": model_id, 
+                            "messages": [
+                                {"role": "system", "content": "You are Auronix learningAI, an expert IIT-JEE mentor. Always write detailed markdown notes. Do not output just math."}, 
+                                {"role": "user", "content": prompt}
+                            ], 
+                            "temperature": 0.3
+                        }
+                        if json_mode:
+                            kwargs["response_format"] = {"type": "json_object"}
+                        res = client.chat.completions.create(**kwargs)
+                        return res.choices[0].message.content, None
+                    except Exception as e:
+                        errors.append(f"Groq {model_id}: {str(e)}")
+                        continue # Try the next valid model in the list
+            else:
+                errors.append("Groq: No valid chat models available on this API key.")
         except Exception as e:
             errors.append(f"Groq API Error: {str(e)}")
 
-    # 2. GEMINI STRICT MODELS
+    # 2. GEMINI (Failsafe for tomorrow when limit resets)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            # Including 3.8 just in case the API demands it again
-            gemini_models = ["gemini-1.5-flash", "gemini-3.8-flash", "gemini-1.5-pro"]
-            
+            gemini_models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
             for m in gemini_models:
                 try:
                     model = genai.GenerativeModel(m)
                     res = model.generate_content(prompt)
                     return res.text, None
                 except Exception as e:
-                    errors.append(f"Gemini {m} fail: {str(e)}")
+                    errors.append(f"Gemini {m}: {str(e)}")
                     continue
         except Exception as e:
             errors.append(f"Gemini API Error: {str(e)}")
@@ -154,7 +159,7 @@ def generate_ai(prompt: str, json_mode: bool = False):
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys are missing in Streamlit Secrets!"
     
-    return None, f"❌ Engine Failure. Logs: {' | '.join(errors)}"
+    return None, f"❌ AI Failure (Limit Reached or Model Blocked): {' | '.join(errors)}"
 
 # ==========================================
 # 💾 DATABASE & STATE
@@ -210,7 +215,7 @@ if source_text:
     CRITICAL INSTRUCTION: You MUST output a complete, highly detailed, beautifully formatted Markdown study guide. 
     Do NOT output just a calculation or a single line. Use headings (##), bullet points, and LaTeX for formulas.
     """
-    with st.spinner("🧠 Connecting to AI..."):
+    with st.spinner("🧠 Scanning for LIVE AI servers..."):
         notes, err = generate_ai(prompt)
         if notes:
             st.session_state.study_notes = notes
