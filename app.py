@@ -1,10 +1,9 @@
-"""Auronix learningAI V2.1 — Stable Engine & Round Robot Fix"""
+"""Auronix learningAI V2.2 — Bulletproof Models & Round Robot"""
 import json
 import os
 import re
 import sqlite3
-import uuid
-from datetime import datetime, timezone
+import html
 from io import BytesIO
 import streamlit as st
 
@@ -41,8 +40,6 @@ except Exception:
 
 st.set_page_config(page_title="Auronix learningAI", page_icon="🦁", layout="centered")
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
-GEMINI_MODEL = "models/gemini-1.5-flash"
 DB_PATH = "auronix.db"
 
 def get_secret(name: str) -> str:
@@ -78,7 +75,7 @@ div[data-testid="stPopover"] {
 div[data-testid="stPopover"] > button {
     width: 65px !important;
     height: 65px !important;
-    border-radius: 50% !important; /* MAKES IT A PERFECT CIRCLE */
+    border-radius: 50% !important; 
     background: radial-gradient(circle at 50% 30%, #222 0%, #000 100%) !important;
     border: 3px solid #00E5FF !important;
     padding: 0 !important;
@@ -91,7 +88,6 @@ div[data-testid="stPopover"] > button {
 div[data-testid="stPopover"] > button:hover {
     transform: scale(1.1) !important;
 }
-/* Hide the text inside button and add Robot Emoji */
 div[data-testid="stPopover"] > button p { display: none !important; }
 div[data-testid="stPopover"] > button::after {
     content: '🤖' !important;
@@ -112,29 +108,40 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 ROCK-SOLID AI ENGINE (NO MORE ERRORS)
+# 🧠 ROCK-SOLID AI ENGINE (MODEL 404 FIX)
 # ==========================================
 def generate_ai(prompt: str, json_mode: bool = False):
     errors = []
     
-    # 1. TRY GROQ FIRST (Super Fast)
+    # 1. TRY GROQ (With Fallback Models)
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            kwargs = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
+            kwargs = {"model": "llama-3.1-70b-versatile", "messages": [{"role": "user", "content": prompt}], "temperature": 0.3}
             if json_mode:
                 kwargs["response_format"] = {"type": "json_object"}
-            res = client.chat.completions.create(**kwargs)
+            
+            try:
+                res = client.chat.completions.create(**kwargs)
+            except Exception: # Fallback if 70b is down
+                kwargs["model"] = "llama3-8b-8192"
+                res = client.chat.completions.create(**kwargs)
+                
             return res.choices[0].message.content, None
         except Exception as e:
             errors.append(f"Groq: {str(e)}")
 
-    # 2. TRY GEMINI (Rock-Solid Fallback)
+    # 2. TRY GEMINI (With Fallback Models)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel(GEMINI_MODEL)
-            res = model.generate_content(prompt)
+            try:
+                model = genai.GenerativeModel("gemini-1.5-flash") # Removed 'models/' prefix
+                res = model.generate_content(prompt)
+            except Exception:
+                model = genai.GenerativeModel("gemini-pro") # Fallback
+                res = model.generate_content(prompt)
+                
             return res.text, None
         except Exception as e:
             errors.append(f"Gemini: {str(e)}")
@@ -142,7 +149,7 @@ def generate_ai(prompt: str, json_mode: bool = False):
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys are missing in Streamlit Secrets!"
     
-    return None, f"❌ AI Error Details: {' | '.join(errors)}"
+    return None, f"❌ AI Error: {' | '.join(errors)}"
 
 # ==========================================
 # 💾 DATABASE & STATE
@@ -196,7 +203,7 @@ if source_text:
             st.session_state.study_notes = notes
             st.success("✅ Guide Ready!")
         else:
-            st.error(err) # This will now show EXACTLY why it failed!
+            st.error(err)
 
 # DISPLAY NOTES & PDF
 if st.session_state.study_notes:
