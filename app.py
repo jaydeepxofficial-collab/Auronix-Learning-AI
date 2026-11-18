@@ -65,12 +65,12 @@ st.markdown("""
     }
 
     /* =========================================
-       EMO-STYLE ROBOT FACE (PURE CSS MAGIC!) 
+       EMO-STYLE ROBOT FACE (FIXED FOR MOBILE) 
        ========================================= */
     div[data-testid="stPopover"] {
         position: fixed !important;
-        bottom: 35px !important;
-        right: 35px !important;
+        bottom: 85px !important; /* ⚡ FIXED: Raised above Streamlit bottom bar */
+        right: 20px !important;
         z-index: 99999 !important;
     }
 
@@ -78,21 +78,20 @@ st.markdown("""
     div[data-testid="stPopover"] > button {
         width: 75px !important;
         height: 65px !important;
-        background: radial-gradient(circle at 50% 30%, #333333 0%, #050505 80%) !important; /* Glossy dark screen */
-        border: 4px solid #9CA3AF !important; /* Silver frame */
-        border-radius: 22px !important; /* Rounded square face */
+        background: radial-gradient(circle at 50% 30%, #333333 0%, #050505 80%) !important;
+        border: 4px solid #9CA3AF !important;
+        border-radius: 22px !important;
         padding: 0 !important;
-        color: transparent !important; /* Hide default text */
-        /* Headphones using purple box-shadow on sides */
+        color: transparent !important;
         box-shadow: -10px 0 0 -2px #5B21B6, 10px 0 0 -2px #5B21B6, 0 10px 25px rgba(0,0,0,0.5) !important;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
         animation: robotFloat 3.5s ease-in-out infinite !important;
     }
 
-    /* Hidden default label handling */
+    /* Hidden default label */
     div[data-testid="stPopover"] > button p { display: none !important; }
 
-    /* Cyan Glowing Eyes (Normal State) */
+    /* Cyan Glowing Eyes */
     div[data-testid="stPopover"] > button::before,
     div[data-testid="stPopover"] > button::after {
         content: '' !important;
@@ -100,15 +99,13 @@ st.markdown("""
         top: 22px !important;
         width: 14px !important;
         height: 12px !important;
-        background: #00E5FF !important; /* Cyan Neon */
-        border-radius: 4px !important; /* Slightly rounded square eyes */
+        background: #00E5FF !important;
+        border-radius: 4px !important;
         box-shadow: 0 0 10px #00E5FF, 0 0 18px #00E5FF !important;
         animation: eyeBlink 4s infinite !important;
         transition: all 0.2s ease !important;
     }
-    /* Left Eye */
     div[data-testid="stPopover"] > button::before { left: 16px !important; }
-    /* Right Eye */
     div[data-testid="stPopover"] > button::after { right: 16px !important; }
 
     /* Happy Emotions (^ ^) on Hover */
@@ -125,11 +122,10 @@ st.markdown("""
         border-bottom-right-radius: 0 !important;
         box-shadow: none !important;
         filter: drop-shadow(0 -3px 6px #00E5FF) !important;
-        animation: none !important; /* Stop blinking when happy */
+        animation: none !important;
         top: 24px !important;
     }
 
-    /* Robot interaction hover effect */
     div[data-testid="stPopover"] > button:hover {
         transform: scale(1.08) translateY(-5px) !important;
         box-shadow: -10px 0 0 -2px #7C3AED, 10px 0 0 -2px #7C3AED, 0 15px 30px rgba(0, 229, 255, 0.3) !important;
@@ -154,7 +150,6 @@ st.markdown("""
         pointer-events: none;
         white-space: nowrap;
     }
-    /* Speech Bubble Triangle Pointer */
     div[data-testid="stPopover"]::after {
         content: "";
         position: absolute;
@@ -171,7 +166,6 @@ st.markdown("""
     div[data-testid="stPopover"]:hover::before { opacity: 1; top: -46px; }
     div[data-testid="stPopover"]:hover::after { opacity: 1; top: -20px; }
 
-    /* Animations */
     @keyframes robotFloat {
         0%, 100% { transform: translateY(0px); }
         50% { transform: translateY(-8px); }
@@ -228,26 +222,14 @@ def fetch_any_transcript(video_id):
     except Exception:
         return None
 
+# ⚡ FIXED: Lightning Fast Generation! Seedha API Call, No Wasting Time!
 def get_cascade_models():
-    priority = [
-        "models/gemini-3.8-flash",
-        "models/gemini-3.8-flash-lite",
-        "models/gemma-3-27b-it",
-        "models/gemma-3-12b-it",
-        "models/gemma-3-4b-it"
+    return [
+        "models/gemini-2.5-flash",
+        "models/gemini-1.5-flash",
+        "models/gemini-2.0-flash",
+        "models/gemma-2-27b-it"
     ]
-    blocked_words = ("tts", "audio", "image", "vision", "embedding", "aqa", "robotics")
-    try:
-        available = [
-            m.name for m in genai.list_models()
-            if 'generateContent' in m.supported_generation_methods
-            and not any(bad in m.name.lower() for bad in blocked_words)
-        ]
-        ordered = [m for m in priority if m in available]
-        others = [m for m in available if m not in ordered and ('gemini' in m.lower() or 'gemma' in m.lower())]
-        return ordered + others if (ordered or others) else priority
-    except Exception:
-        return priority
 
 def extract_non_thought_text(response_obj):
     text_pieces = []
@@ -448,14 +430,14 @@ CRITICAL INSTRUCTIONS (OBEY STRICTLY):
 ===START_NOTES===
 {task_instruction}
 """
-    with st.spinner("⚡ Generating Deep Topper-Level Study Notes..."):
+    with st.spinner("⚡ Generating Deep Topper-Level Study Notes (Lightning Fast)..."):
         notes_res, err = generate_with_cascade(prompt, clean_mode="notes")
     if notes_res:
         st.session_state.study_notes = notes_res
         st.session_state.topic_context = source_text[:10000]
         st.session_state.lang_saved = lang_choice
     elif err == "BUSY":
-        st.warning("⏳ All free AI engines are busy right now. Please wait 30 seconds and click Generate again!")
+        st.warning("⏳ All free AI engines are busy right now. Please wait 10 seconds and click Generate again!")
     elif err:
         st.error(f"❌ AI Error: {err}")
 
@@ -524,7 +506,7 @@ Format:
                     except Exception:
                         st.session_state.qa_output = strip_leaked_thinking(raw_json, mode="qa")
                 elif q_err == "BUSY":
-                    st.warning("⏳ Free AI engines are busy. Wait 30 seconds and try again!")
+                    st.warning("⏳ Free AI engines are busy. Wait 10 seconds and try again!")
                 elif q_err:
                     st.error(f"❌ Test Error: {q_err}")
         else:
@@ -544,7 +526,7 @@ No thinking process before it! Format cleanly with Q1., Q2... followed by '✅ A
                 if qa_res:
                     st.session_state.qa_output = qa_res
                 elif qa_err == "BUSY":
-                    st.warning("⏳ Free AI engines are busy. Wait 30 seconds and try again!")
+                    st.warning("⏳ Free AI engines are busy. Wait 10 seconds and try again!")
                 elif qa_err:
                     st.error(f"❌ Test Error: {qa_err}")
 
@@ -595,7 +577,7 @@ No thinking process before it! Format cleanly with Q1., Q2... followed by '✅ A
             help="Opens beautifully on any device. Just click 'Print' inside to save as PDF!"
         )
 
-# 🤖 EMO-STYLE FLOATING AI DOUBT ROBOT (CSS takes over the empty string)
+# 🤖 EMO-STYLE FLOATING AI DOUBT ROBOT
 with st.popover(" "):
     st.markdown("""
     <div style="background: linear-gradient(135deg, rgba(255,165,0,0.18), rgba(15,23,42,0.95));
@@ -652,7 +634,7 @@ CRITICAL RULES:
                         st.session_state.buddy_chat.append({"role": "bot", "text": ans})
                         st.rerun()
                     elif b_err == "BUSY":
-                        st.warning("⏳ AI busy hai, 15 second baad try karo!")
+                        st.warning("⏳ AI busy hai, 10 second baad try karo!")
                     elif b_err:
                         st.error(f"Error: {b_err}")
 
