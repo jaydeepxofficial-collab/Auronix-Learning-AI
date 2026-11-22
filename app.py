@@ -1,11 +1,9 @@
-"""Auronix learningAI V4.0 — 3-Layer YouTube Extractor, 6-Step Topper Notes, Hardcore Exam Tests & As-It-Is Calligraphy Export"""
+"""Auronix learningAI V4.2 (Verified Final Build) — Zero-Truncation, Math-Safe Calligraphy Export & Precision Doubt Solver"""
 import json
 import os
 import re
-import sqlite3
 import html
 import urllib.request
-import urllib.parse
 from io import BytesIO
 import streamlit as st
 
@@ -35,9 +33,7 @@ try:
 except Exception:
     REPORTLAB_OK = False
 
-st.set_page_config(page_title="Auronix learningAI V4.0", page_icon="🦁", layout="centered")
-
-DB_PATH = "auronix.db"
+st.set_page_config(page_title="Auronix learningAI V4.2", page_icon="🦁", layout="centered")
 
 def get_secret(name: str) -> str:
     try:
@@ -49,20 +45,20 @@ GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
 
 # ==========================================
-# 🎨 UI, BIG HEADINGS & STRICT ROUND ROBOT CSS (UNTOUCHED)
+# 🎨 CLEAN, SERIOUS EXAM-GRADE UI & HEADINGS CSS
 # ==========================================
 st.markdown("""
 <style>
 #MainMenu {visibility:hidden;} footer {visibility:hidden;} header {visibility:hidden;}
-.block-container {padding-top:1.4rem; padding-bottom:5rem; max-width:1050px;}
-.auronix-hero {background:linear-gradient(135deg,rgba(255,165,0,.16),rgba(255,94,0,.055));border:1px solid rgba(255,165,0,.38);border-radius:20px;padding:23px 20px;margin-bottom:22px;text-align:center;}
-.auronix-title {background:linear-gradient(90deg,#FFB300,#FF6F00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(2rem,6vw,2.65rem);font-weight:950;margin:0;}
-.auronix-badge {display:inline-block;background:rgba(255,165,0,.16);color:#FFB300;font-size:12px;font-weight:750;padding:6px 14px;border-radius:20px;margin-top:10px;border:1px solid rgba(255,165,0,.32);}
-div.stButton>button, div.stDownloadButton>button {background:linear-gradient(90deg,#FF9800,#F57C00)!important;color:white!important;font-weight:750!important;border:0!important;border-radius:12px!important;}
+.block-container {padding-top:1.4rem; padding-bottom:4rem; max-width:1050px;}
+.auronix-hero {background:linear-gradient(135deg,rgba(255,165,0,.14),rgba(255,94,0,.045));border:1px solid rgba(255,165,0,.35);border-radius:18px;padding:22px 20px;margin-bottom:22px;text-align:center;}
+.auronix-title {background:linear-gradient(90deg,#FFB300,#FF6F00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:clamp(1.9rem,5.5vw,2.55rem);font-weight:950;margin:0;}
+.auronix-badge {display:inline-block;background:rgba(255,165,0,.15);color:#FFB300;font-size:12px;font-weight:750;padding:5px 14px;border-radius:20px;margin-top:10px;border:1px solid rgba(255,165,0,.30);}
+div.stButton>button, div.stDownloadButton>button, div.stFormSubmitButton>button {background:linear-gradient(90deg,#FF9800,#F57C00)!important;color:white!important;font-weight:750!important;border:0!important;border-radius:12px!important;}
 
-/* 🔥 BIG, BOLD, EYE-CATCHING NOTES HEADINGS */
+/* 🔥 BIG, AUTHORITATIVE TOPPER NOTES HEADINGS */
 .auronix-notes-box h1 {
-    font-size: 2.15rem !important;
+    font-size: 2.05rem !important;
     font-weight: 900 !important;
     color: #FFB300 !important;
     border-bottom: 2px solid rgba(255, 179, 0, 0.35) !important;
@@ -70,50 +66,16 @@ div.stButton>button, div.stDownloadButton>button {background:linear-gradient(90d
     margin-top: 1.5rem !important;
 }
 .auronix-notes-box h2 {
-    font-size: 1.65rem !important;
+    font-size: 1.55rem !important;
     font-weight: 850 !important;
     color: #FF8F00 !important;
     margin-top: 1.4rem !important;
 }
 .auronix-notes-box h3 {
-    font-size: 1.3rem !important;
+    font-size: 1.25rem !important;
     font-weight: 750 !important;
     color: #38BDF8 !important;
     margin-top: 1rem !important;
-}
-
-/* 🤖 100% GOL (ROUND) FLOATING ROBOT FACE */
-div[data-testid="stPopover"] {
-    position: fixed !important;
-    bottom: 25px !important;
-    right: 25px !important;
-    width: 65px !important;
-    height: 65px !important;
-    z-index: 99999 !important;
-}
-div[data-testid="stPopover"] > button {
-    width: 65px !important;
-    height: 65px !important;
-    border-radius: 50% !important; 
-    background: radial-gradient(circle at 50% 30%, #222 0%, #000 100%) !important;
-    border: 3px solid #00E5FF !important;
-    padding: 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    box-shadow: 0 5px 20px rgba(0, 229, 255, 0.4) !important;
-    transition: transform 0.3s ease !important;
-}
-div[data-testid="stPopover"] > button:hover {
-    transform: scale(1.1) !important;
-}
-div[data-testid="stPopover"] > button p { display: none !important; }
-div[data-testid="stPopover"] > button::after {
-    content: '🤖' !important;
-    font-size: 32px !important;
-}
-@media(max-width:600px){
-    div[data-testid="stPopover"] { right: 15px !important; bottom: 15px !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -121,8 +83,8 @@ div[data-testid="stPopover"] > button::after {
 st.markdown("""
 <div class="auronix-hero">
   <div class="auronix-title">🦁 Auronix learningAI</div>
-  <p style="color:#B0B8C4;font-size:15px;margin:9px 0 0">6-Step Topper Notes · 3-Layer YouTube Lecture Extractor · Hardcore Tests · As-It-Is Calligraphy Export</p>
-  <div class="auronix-badge">⚡ V4.0 Smart Radar Engine · Boards · JEE · NEET</div>
+  <p style="color:#B0B8C4;font-size:15px;margin:8px 0 0">Serious Topper Notes · Real 15-Yr PYQs · YouTube Lecture Distiller · As-It-Is Calligraphy Export</p>
+  <div class="auronix-badge">⚡ V4.2 Verified Engine · Boards · JEE Main & Adv · NEET</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -130,11 +92,6 @@ st.markdown("""
 # 🎬 3-LAYER YOUTUBE LECTURE EXTRACTOR
 # ==========================================
 def extract_youtube_lecture(yt_url: str, manual_notes_paste: str = ""):
-    """
-    Layer 1: Fetch captions (supports both new & old youtube_transcript_api).
-    Layer 2: Auto-fetch Video Title & Teacher/Channel via YouTube oEmbed (works even if captions are blocked!).
-    Layer 3: Combine with optional pasted description/transcript.
-    """
     vid_match = re.search(r"(?:v=|youtu\.be/|shorts/|live/)([A-Za-z0-9_-]{11})", yt_url.strip())
     if not vid_match:
         return None, None, "❌ Invalid YouTube URL. Please paste a valid lecture link."
@@ -143,7 +100,6 @@ def extract_youtube_lecture(yt_url: str, manual_notes_paste: str = ""):
     video_title = ""
     channel_name = ""
 
-    # Layer 2: oEmbed Metadata (Never gets IP-blocked easily)
     try:
         oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid_id}&format=json"
         req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
@@ -154,23 +110,19 @@ def extract_youtube_lecture(yt_url: str, manual_notes_paste: str = ""):
     except Exception:
         pass
 
-    # Layer 1: Transcript Fetcher
     transcript_text = ""
     if YouTubeTranscriptApi:
         try:
-            # New API syntax (v1.x)
             if hasattr(YouTubeTranscriptApi, "fetch"):
                 api = YouTubeTranscriptApi()
                 fetched = api.fetch(vid_id, languages=["hi", "en", "en-IN"])
                 transcript_text = " ".join([snippet.text for snippet in fetched])
             else:
-                # Classic API syntax (v0.6.x)
                 fetched = YouTubeTranscriptApi.get_transcript(vid_id, languages=["hi", "en", "en-IN"])
                 transcript_text = " ".join([t["text"] for t in fetched])
         except Exception:
             transcript_text = ""
 
-    # Build final lecture payload
     parts = []
     if video_title:
         parts.append(f"YOUTUBE LECTURE TITLE: {video_title}")
@@ -192,7 +144,7 @@ def extract_youtube_lecture(yt_url: str, manual_notes_paste: str = ""):
     return "\n\n".join(parts), status_msg, None
 
 # ==========================================
-# 🧹 MATH & AS-IT-IS CALLIGRAPHY EXPORT ENGINE
+# 🧹 MATH & MATH-SAFE CALLIGRAPHY EXPORT ENGINE
 # ==========================================
 def clean_math_formatting(text: str) -> str:
     if not text:
@@ -246,13 +198,16 @@ def build_clean_pdf(markdown_text: str, exam_title: str) -> bytes:
             continue
         if stripped.startswith("### "):
             txt = clean_latex_for_pdf(stripped[4:])
-            if txt: story.append(Paragraph(html.escape(txt), h2_style))
+            if txt:
+                story.append(Paragraph(html.escape(txt), h2_style))
         elif stripped.startswith("## "):
             txt = clean_latex_for_pdf(stripped[3:])
-            if txt: story.append(Paragraph(html.escape(txt), h1_style))
+            if txt:
+                story.append(Paragraph(html.escape(txt), h1_style))
         elif stripped.startswith("# "):
             txt = clean_latex_for_pdf(stripped[2:])
-            if txt: story.append(Paragraph(html.escape(txt), h1_style))
+            if txt:
+                story.append(Paragraph(html.escape(txt), h1_style))
         elif stripped.startswith(("- ", "* ")):
             txt = clean_latex_for_pdf(stripped[2:])
             if txt:
@@ -272,10 +227,7 @@ def build_clean_pdf(markdown_text: str, exam_title: str) -> bytes:
     return buffer.getvalue()
 
 def build_as_it_is_calligraphy_html(markdown_text: str, exam_title: str) -> bytes:
-    """
-    Renders the EXACT notes AS-IT-IS with KaTeX math, Markdown tables,
-    beautiful calligraphy-grade typography, and a 1-click Save-as-PDF Print button!
-    """
+    """Math-safe As-It-Is Calligraphy HTML/PDF sheet (protects LaTeX from marked.js)."""
     safe_title = html.escape(exam_title)
     md_json = json.dumps(markdown_text)
     html_doc = f"""<!DOCTYPE html>
@@ -405,8 +357,22 @@ def build_as_it_is_calligraphy_html(markdown_text: str, exam_title: str) -> byte
   <script>
     window.addEventListener("DOMContentLoaded", function() {{
       const rawMd = {md_json};
-      document.getElementById("content").innerHTML = marked.parse(rawMd);
-      renderMathInElement(document.getElementById("content"), {{
+      const mathStore = [];
+      let protectedMd = rawMd.replace(/\\$\\$([\\s\\S]+?)\\$\\$/g, function(m) {{
+        mathStore.push(m);
+        return "AURONIXMATHBLOCK" + (mathStore.length - 1) + "END";
+      }});
+      protectedMd = protectedMd.replace(/\\$([^\\$\\n]+?)\\$/g, function(m) {{
+        mathStore.push(m);
+        return "AURONIXMATHINLINE" + (mathStore.length - 1) + "END";
+      }});
+      let htmlOut = marked.parse(protectedMd);
+      htmlOut = htmlOut.replace(/AURONIXMATH(?:BLOCK|INLINE)(\\d+)END/g, function(_, i) {{
+        return mathStore[Number(i)];
+      }});
+      const container = document.getElementById("content");
+      container.innerHTML = htmlOut;
+      renderMathInElement(container, {{
         delimiters: [
           {{left: "$$", right: "$$", display: true}},
           {{left: "$", right: "$", display: false}}
@@ -420,29 +386,31 @@ def build_as_it_is_calligraphy_html(markdown_text: str, exam_title: str) -> byte
     return html_doc.encode("utf-8")
 
 # ==========================================
-# 🧠 UNTOUCHED SMART RADAR ENGINE
+# 🧠 SMART RADAR ENGINE (HIGH-CONTEXT + UPDATED BACKUP)
 # ==========================================
-def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.25):
+def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.2, max_tokens: int = 8192):
     errors = []
     sys_msg = (
-        "You are Auronix learningAI, India's top Board, JEE Advanced, and NEET educator. "
-        "Follow the user's selected exam rigor, syllabus boundary, and language strictly. "
+        "You are Auronix learningAI, India's premier Board, JEE Advanced, and NEET ranker-producing educator. "
+        "Maintain an authoritative, serious, topper-handbook tone. Never truncate or leave sections incomplete. "
         "Use $ for inline math and $$ for block math. NEVER use \\( or \\) or \\[ or \\]."
     )
-    
+
     if GROQ_API_KEY and Groq:
         try:
             client = Groq(api_key=GROQ_API_KEY)
             live_models = client.models.list().data
+            skip_words = ("guard", "whisper", "tts", "audio", "embed", "vision")
             valid_chat_models = [
                 m.id for m in live_models
-                if "guard" not in m.id.lower()
-                and "whisper" not in m.id.lower()
-                and "tts" not in m.id.lower()
+                if not any(w in m.id.lower() for w in skip_words)
             ]
-            
-            if valid_chat_models:
-                for model_id in valid_chat_models:
+            preferred = [m for m in valid_chat_models if any(k in m.lower() for k in ("llama-3.3", "70b", "qwen"))]
+            others = [m for m in valid_chat_models if m not in preferred]
+            ordered_models = preferred + others
+
+            if ordered_models:
+                for model_id in ordered_models:
                     try:
                         kwargs = {
                             "model": model_id,
@@ -450,7 +418,8 @@ def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.25)
                                 {"role": "system", "content": sys_msg},
                                 {"role": "user", "content": prompt}
                             ],
-                            "temperature": temperature
+                            "temperature": temperature,
+                            "max_tokens": max_tokens
                         }
                         if json_mode:
                             kwargs["response_format"] = {"type": "json_object"}
@@ -467,13 +436,13 @@ def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.25)
     if GEMINI_API_KEY and genai:
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            gemini_models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
+            gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
             for m in gemini_models:
                 try:
                     model = genai.GenerativeModel(
                         m,
                         system_instruction=sys_msg,
-                        generation_config={"temperature": temperature}
+                        generation_config={"temperature": temperature, "max_output_tokens": max_tokens}
                     )
                     res = model.generate_content(prompt)
                     return res.text, None
@@ -485,29 +454,29 @@ def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.25)
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         return None, "❌ API Keys missing!"
-    
+
     return None, f"❌ AI Failure: {' | '.join(errors)}"
 
 # ==========================================
-# 🔥 HARDCORE EXAM RIGOR PROFILES
+# 🔥 SERIOUS EXAM RIGOR PROFILES
 # ==========================================
 EXAM_RIGOR_MAP = {
     "🏫 Class 11/12 Boards (CBSE / State)": (
-        "STRICT CLASS 11/12 BOARD STANDARD: Crisp NCERT definitions, exact board-exam keywords, "
-        "step-by-step standard derivations, SI units, and clear diagram descriptions."
+        "STRICT CLASS 11/12 BOARD TOPPER STANDARD: Formal NCERT definitions, exact board-exam keywords, "
+        "complete step-by-step derivations, SI units, and clear diagram descriptions."
     ),
     "🩺 NEET (Pure NCERT + 15-Yr PYQ Radar)": (
-        "PURE NEET NCERT + PYQ SCANNER MODE (ZERO OUT-OF-NCERT FLUFF): Extract ONLY exact NCERT lines, "
-        "NCERT tables, scientist names, dates, exceptions, and last-15-year NEET PYQ hotspots. "
+        "PURE NEET NCERT + 15-YEAR PYQ SCANNER MODE (ZERO OUT-OF-NCERT FLUFF): Extract ONLY exact NCERT lines, "
+        "NCERT tables, scientist names, dates, exceptions, and real last-15-year NEET/AIPMT PYQ hotspots. "
         "Highlight exact NCERT trap words ('only', 'always', 'all', 'except')."
     ),
     "⚙️ JEE Main (NCERT + PYQ Tricks & Speed)": (
-        "STRICT JEE MAIN STANDARD: Strong Class 11/12 conceptual depth, JEE Main PYQ patterns, "
+        "STRICT JEE MAIN TOPPER STANDARD: Strong Class 11/12 conceptual depth, JEE Main PYQ patterns, "
         "graph transformations, special cases, numerical shortcuts, and silly-mistake traps."
     ),
     "🚀 JEE Advanced (Hardest Top-Batch Level)": (
-        "HARDEST JEE ADVANCED TOP-BATCH STANDARD: Deep analytical derivations, multi-concept intersections, "
-        "limiting cases, boundary conditions, non-obvious exceptions, and brutal conceptual traps."
+        "HARDEST JEE ADVANCED TOP-BATCH STANDARD (KOTA RANKER HANDBOOK): Deep analytical derivations, "
+        "multi-concept intersections, limiting cases, boundary conditions, non-obvious exceptions, and brutal conceptual traps."
     )
 }
 
@@ -520,11 +489,11 @@ DEFAULTS = {
     "quiz_data": None,
     "quiz_submitted": False,
     "qa_output": "",
-    "buddy_chat": [],
     "flashcards": [],
+    "doubt_answer": "",
     "selected_exam": "🏫 Class 11/12 Boards (CBSE / State)",
     "selected_basis": "📘 Strict NCERT Line-by-Line Core",
-    "selected_lang": "Hinglish (Easy & Clear Concept Clarity)"
+    "selected_lang": "Hinglish (Clear & Serious Concept Clarity)"
 }
 for k, v in DEFAULTS.items():
     if k not in st.session_state:
@@ -548,6 +517,18 @@ with c2:
         ]
     )
 
+board_stream = ""
+if target_exam == "🏫 Class 11/12 Boards (CBSE / State)":
+    board_stream = st.radio(
+        "🎯 School Board Alignment (Select Your Track):",
+        [
+            "📘 Pure School Boards (CBSE / State Only)",
+            "🩺 Boards + NEET Alignment (NCERT Bio/Chem/Phys Focus)",
+            "⚙️ Boards + JEE Alignment (Derivations & Numericals Focus)"
+        ],
+        horizontal=True
+    )
+
 c3, c4 = st.columns(2)
 with c3:
     output_type = st.selectbox(
@@ -562,10 +543,12 @@ with c4:
     lang_choice = st.selectbox(
         "4️⃣ Explanation Language",
         [
-            "Hinglish (Easy & Clear Concept Clarity)",
+            "Hinglish (Clear & Serious Concept Clarity)",
             "English (100% Exam Ready)"
         ]
     )
+
+effective_exam_label = f"{target_exam} [{board_stream}]" if board_stream else target_exam
 
 # ==========================================
 # 📝 STEP 2: 3-FIELD TOPIC INPUT OR 3-LAYER YOUTUBE EXTRACTOR
@@ -585,7 +568,7 @@ if mode == "📝 Structured Topic Input":
         chapter_name = st.text_input("📖 Chapter Name (Required)", placeholder="e.g., Rotational Motion / Cell: The Unit of Life")
     specific_topic = st.text_input("🎯 Specific Topic (Optional — leave blank for full chapter)", placeholder="e.g., Moment of Inertia / Mitochondria & Plastids")
 
-    if st.button("✨ Generate 6-Step Topper Notes", use_container_width=True):
+    if st.button("✨ Generate Complete 6-Step Topper Notes", use_container_width=True):
         if not chapter_name.strip():
             st.warning("⚠️ Please enter the Chapter Name first!")
         else:
@@ -599,7 +582,7 @@ elif mode == "🔗 YouTube Lecture Link":
         "📋 Optional: Paste Video Description / Rough Points (Only if video is private or captions are off)",
         height=70
     )
-    if st.button("✨ Extract Sir's Lecture & Generate Crisp Notes", use_container_width=True):
+    if st.button("✨ Extract Lecture & Generate Complete Notes", use_container_width=True):
         if not yt_url.strip():
             st.warning("⚠️ Please paste a YouTube lecture link first!")
         else:
@@ -612,7 +595,7 @@ elif mode == "🔗 YouTube Lecture Link":
                 source_text = extracted
 
 # ==========================================
-# 🧠 V4.0 STRICT 6-STEP TOPPER NOTE GENERATOR
+# 🧠 ZERO-TRUNCATION 6-STEP TOPPER NOTE GENERATOR
 # ==========================================
 if source_text:
     for state_key in list(st.session_state.keys()):
@@ -622,21 +605,45 @@ if source_text:
     st.session_state.qa_output = ""
     st.session_state.quiz_submitted = False
     st.session_state.flashcards = []
-    st.session_state.selected_exam = target_exam
+    st.session_state.doubt_answer = ""
+    st.session_state.selected_exam = effective_exam_label
     st.session_state.selected_basis = content_basis
     st.session_state.selected_lang = lang_choice
 
     rigor_instruction = EXAM_RIGOR_MAP[target_exam]
+    if board_stream:
+        rigor_instruction += f" | BOARD TRACK ALIGNMENT: Strictly align examples, traps, and PYQs with {board_stream}."
+
+    if "NEET" in effective_exam_label:
+        pyq_mandatory_rule = (
+            "MANDATORY 15-YEAR NEET PYQ BANK: In Section 5, include **5 to 7 actual, most-repeated Last 15 Years NEET / AIPMT PYQ Questions** "
+            "from this exact chapter/topic with Year tags (`[NEET 2023]`, `[NEET 2020]`, `[AIPMT 2015]`), "
+            "followed by the exact NCERT-based Answer & 1-line Trap/Trick."
+        )
+    elif "JEE" in effective_exam_label:
+        pyq_mandatory_rule = (
+            "MANDATORY JEE PYQ BANK: In Section 5, include **5 high-yield JEE Main / Advanced PYQ Questions** "
+            "from this exact chapter/topic with Year tags (`[JEE Main 2023]`, `[JEE Adv 2019]`), "
+            "followed by the crisp Formula/Approach & Final Answer."
+        )
+    else:
+        pyq_mandatory_rule = (
+            "MANDATORY CBSE BOARD PYQ BANK: In Section 5, include **5 most-repeated CBSE Class 11/12 Board Previous Year Questions** "
+            "(1-Mark, 2-Mark, 3-Mark/5-Mark) with Marking Scheme key points."
+        )
+
     yt_extra_rule = (
-        "YOUTUBE LECTURE RULE: Distill the teacher's lecture into ultra-crisp, structured topper notes—cut out all filler talk, greetings, and repetition, keeping ONLY the core concepts, formulas, tricks, and exam points taught in the lecture."
+        "YOUTUBE LECTURE RULE: Distill the teacher's lecture into ultra-crisp, structured topper notes—cut out filler talk and repetition, keeping ONLY core concepts, formulas, tricks, and exam points."
         if is_youtube_mode else ""
     )
 
     prompt = f"""
-You are Auronix learningAI V4.0, India's top ranker-producing educator.
+You are Auronix learningAI V4.2, India's premier ranker-producing educator.
+Write SERIOUS, EXAM-GRADE, TOPPER-HANDBOOK NOTES (no childish jokes or casual filler).
+CRITICAL COMPLETION RULE: You MUST complete ALL 6 SECTIONS cleanly from Section 1 through Section 6 without cutting off mid-sentence! Keep explanations dense, crisp, and high-yield so every single section finishes completely.
 
 USER SELECTION (FOLLOW 100% STRICTLY):
-- Target Exam Level: {target_exam}
+- Target Exam Level: {effective_exam_label}
 - Content Basis: {content_basis}
 - Output Style: {output_type}
 - Language: {lang_choice}
@@ -646,52 +653,65 @@ MANDATORY EXAM RIGOR:
 {rigor_instruction}
 {yt_extra_rule}
 
-STRICT 6-STEP TOPPER NOTES ARCHITECTURE (FOLLOW THIS EXACT ORDER):
+STRICT 6-STEP TOPPER NOTES ARCHITECTURE (COMPLETE ALL 6 SECTIONS):
 # [Main Chapter / Topic Title]
 
 ## 1. 📌 Introduction & Chapter Roadmap
-- Give a crisp 3-4 line intro and a bulleted roadmap of exact sub-topics covered below.
+- Crisp 3-line exam weightage & scope overview + bulleted roadmap of exact sub-topics covered below.
 
 ## 2. 🧠 Core Concepts (Topic-by-Topic Breakdown)
-- Cover each sub-topic under clear `###` headings.
+- Cover every core sub-topic under clear `###` headings.
 - For EVERY sub-topic provide:
-  - **Exact Definition / Principle & Formula** (use `$` for inline math and `$$` for block math).
-  - **💡 Logical Real-Life Analogy:** Give a 100% scientifically and logically ACCURATE real-life example (NO illogical or cringe jokes!).
-  - **✍️ Solved Example:** A crisp exam-relevant example showing how to apply the concept.
+  - **Definition / Principle & Formula:** Exact exam-ready statement and equations (`$` inline, `$$` block).
+  - **💡 Logical Real-World Application:** A 100% scientifically accurate real-world physical/biological example (strictly serious & logical).
+  - **✍️ Solved Example:** A crisp exam-relevant numerical or conceptual example with step-by-step solution.
 
 ## 3. 📊 Comparison Tables & Process Flowcharts
-- Present key differences, classifications, or formulas in clean **Markdown Tables (Columns)**.
-- Present step-by-step mechanisms, derivations, or pathways as clean **Arrow Flowcharts** (e.g., `Step 1 ➔ Step 2 ➔ Step 3`).
+- Present key differences, classifications, or formula summaries in clean **Markdown Tables (Columns)**.
+- Present step-by-step mechanisms, derivations, or pathways as clean **Arrow Flowcharts** (`Step 1 ➔ Step 2 ➔ Step 3`).
 
 ## 4. ⚡ Quick Summary & Revision Capsule
-- 5-7 ultra-crisp bullet points for 2-minute revision before the exam.
+- 6-8 ultra-crisp bullet points for rapid 2-minute revision before the exam.
 
-## 5. 🚨 JEE & NEET Traps + PYQ Radar
-- Highlight exact examiner traps, exceptions, and high-frequency PYQ patterns from this chapter.
+## 5. 🚨 Exam Traps & Real Previous Year Questions (PYQ Bank)
+- Top examiner traps, limiting cases, & NCERT exceptions for {effective_exam_label}.
+- {pyq_mandatory_rule}
 
 ## 6. 🏁 Finish
-- End cleanly with a 1-line mastery checklist.
+- End with a crisp 2-line mastery verification checklist.
 
 MATH RULE: Use $ for inline math and $$ for block math. NEVER use \\( or \\).
 """
-    with st.spinner(f"🧠 Building 6-Step Topper Notes for {target_exam}..."):
-        notes, err = generate_ai(prompt, temperature=0.25)
+    with st.spinner(f"🧠 Building Complete 6-Step Topper Notes for {effective_exam_label}..."):
+        notes, err = generate_ai(prompt, temperature=0.2, max_tokens=8192)
         if notes:
+            if not re.search(r"##\s*6\.|🏁", notes):
+                cont_prompt = f"""
+The following topper notes were cut off before finishing all 6 sections.
+Continue seamlessly from the exact last line below and COMPLETE the remaining sections (up to `## 6. 🏁 Finish`, including Section 4 Summary and Section 5 Real PYQ Bank if missing). Do NOT repeat what is already written.
+
+ALREADY WRITTEN NOTES (END PART):
+{notes[-3500:]}
+"""
+                more_notes, _ = generate_ai(cont_prompt, temperature=0.2, max_tokens=4096)
+                if more_notes:
+                    notes = notes.rstrip() + "\n\n" + more_notes.lstrip()
+
             st.session_state.study_notes = clean_math_formatting(notes)
             st.session_state.topic_context = source_text
-            st.success(f"✅ {target_exam} 6-Step Topper Notes Ready!")
+            st.success(f"✅ Complete {effective_exam_label} Topper Notes Ready!")
         else:
             st.error(err)
 
 # ==========================================
-# 📖 DISPLAY CLEAN NOTES & AS-IT-IS CALLIGRAPHY EXPORT
+# 📖 DISPLAY CLEAN NOTES, EXPORT & 100% RELIABLE DOUBT SOLVER
 # ==========================================
 if st.session_state.study_notes:
     st.markdown('<div class="auronix-notes-box">', unsafe_allow_html=True)
     st.markdown(st.session_state.study_notes)
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.caption("💡 **Best Tip for Exact PDF:** Download the **As-It-Is Calligraphy Sheet**, open it in Chrome/Brave, and tap **🖨️ Save as Exact PDF** — every formula, table, and font stays 100% identical!")
+
+    st.caption("💡 **For Exact PDF:** Download the **As-It-Is Calligraphy Sheet**, open it in Chrome/Brave, and tap **🖨️ Save as Exact PDF** — every formula, table, and font stays 100% identical!")
     dl1, dl2 = st.columns(2)
     with dl1:
         calligraphy_html = build_as_it_is_calligraphy_html(st.session_state.study_notes, st.session_state.selected_exam)
@@ -717,6 +737,46 @@ if st.session_state.study_notes:
                 st.warning(f"PDF build skipped: {e}")
 
     # ==========================================
+    # 🤖 100% RELIABLE AI DOUBT SOLVER (MOBILE-FIRST FORM)
+    # ==========================================
+    st.divider()
+    with st.expander("🤖 Auronix Precision Doubt Solver (Tap Here to Ask Any Doubt)", expanded=True):
+        st.caption(f"🎯 Precision Mode Locked (`temp=0.05`) · Context: **{st.session_state.selected_exam}**")
+        with st.form("auronix_doubt_form"):
+            doubt = st.text_input("Type your exact concept, formula, or PYQ doubt from these notes:", key="auronix_doubt_input")
+            ask_clicked = st.form_submit_button("💡 Solve Doubt With Precision", use_container_width=True)
+        if ask_clicked:
+            if not doubt.strip():
+                st.warning("⚠️ Please type your doubt first!")
+            else:
+                b_prompt = f"""
+You are a strict, 100% accurate academic doubt-solving mentor for {st.session_state.selected_exam}.
+Language: {st.session_state.selected_lang}.
+
+RULES (ZERO FLUCTUATION / ZERO GUESSING):
+1. Check the STUDY NOTES below for the exact concept/formula.
+2. Answer the student's doubt directly in 3 structured parts:
+   - **🎯 Direct Answer:** (Exact, crisp 1-2 line answer)
+   - **🧠 Step-by-Step Logic / Derivation:** (Clear reasoning with proper `$` math)
+   - **💡 Real-World / Exam Application:** (1-line scientifically accurate application)
+3. Maintain a serious, encouraging mentor tone.
+
+STUDY NOTES:
+{st.session_state.study_notes[:12000]}
+
+STUDENT DOUBT:
+{doubt.strip()}
+"""
+                with st.spinner("Solving with 100% precision..."):
+                    ans, err = generate_ai(b_prompt, temperature=0.05, max_tokens=2048)
+                    if ans:
+                        st.session_state.doubt_answer = clean_math_formatting(ans)
+                    else:
+                        st.error(err)
+        if st.session_state.doubt_answer:
+            st.success(st.session_state.doubt_answer)
+
+    # ==========================================
     # 🧠 HARDCORE IN-CONTEXT PRACTICE TEST
     # ==========================================
     st.divider()
@@ -730,7 +790,7 @@ if st.session_state.study_notes:
         diff_level = st.selectbox("Difficulty", ["Hard / Exam Ranker", "Exam Standard", "Mixed PYQ Style"])
     with q3:
         test_format = st.selectbox("Format", ["Interactive MCQs", "Subjective Q&A (Boards/Written)"])
-    
+
     if st.button("🚀 Generate Hardcore Test From These Notes", use_container_width=True):
         for state_key in list(st.session_state.keys()):
             if state_key.startswith("auronix_q_"):
@@ -738,12 +798,12 @@ if st.session_state.study_notes:
         st.session_state.quiz_data = None
         st.session_state.quiz_submitted = False
         st.session_state.qa_output = ""
-        
+
         if test_format == "Interactive MCQs":
             qprompt = f"""
 You MUST create {num_q} CHALLENGING, RANKER-LEVEL exam MCQs STRICTLY AND EXCLUSIVELY from the STUDY NOTES provided below.
 
-CRITICAL DIFFICULTY & QUALITY RULES (NO EASY / DIRECT ONE-LINER QUESTIONS!):
+CRITICAL DIFFICULTY & QUALITY RULES:
 1. Every single question MUST test deep understanding, traps, formulas, or facts present in the STUDY NOTES below.
 2. Match the EXACT rigor of {st.session_state.selected_exam} ({diff_level}):
    - If NEET: Include Multi-Statement ("How many of the following statements are correct?"), NCERT Trap Assertion-Reason, and Match-the-Column MCQs.
@@ -761,7 +821,7 @@ STUDY NOTES:
 {st.session_state.study_notes[:12000]}
 """
             with st.spinner(f"Preparing {num_q} hardcore {st.session_state.selected_exam} MCQs..."):
-                raw, err = generate_ai(qprompt, json_mode=True, temperature=0.2)
+                raw, err = generate_ai(qprompt, json_mode=True, temperature=0.2, max_tokens=6000)
             if raw:
                 try:
                     clean_raw = re.sub(r"```(?:json)?|```", "", raw).strip()
@@ -786,17 +846,16 @@ STUDY NOTES:
 {st.session_state.study_notes[:12000]}
 """
             with st.spinner("Preparing written exam questions from your notes..."):
-                answer, err = generate_ai(qprompt, temperature=0.2)
+                answer, err = generate_ai(qprompt, temperature=0.2, max_tokens=6000)
             if answer:
                 st.session_state.qa_output = clean_math_formatting(answer)
 
-    # SHOW INTERACTIVE TEST
     if st.session_state.quiz_data:
         st.markdown(f"#### 📝 Live Exam Test · {len(st.session_state.quiz_data)} Questions")
         is_competitive = ("NEET" in st.session_state.selected_exam) or ("JEE" in st.session_state.selected_exam)
         marks_per_correct = 4 if is_competitive else 1
         marks_per_wrong = 1 if is_competitive else 0
-        
+
         with st.form("auronix_quiz_form"):
             for idx, item in enumerate(st.session_state.quiz_data):
                 q_text = clean_math_formatting(str(item["q"]))
@@ -811,7 +870,7 @@ STUDY NOTES:
                 )
                 st.write("")
             submitted = st.form_submit_button("📊 Submit & Check Score", use_container_width=True)
-            
+
         if submitted:
             correct = wrong = attempted = 0
             for idx, item in enumerate(st.session_state.quiz_data):
@@ -823,12 +882,12 @@ STUDY NOTES:
                         correct += 1
                     else:
                         wrong += 1
-                    
+
             raw_score = correct * marks_per_correct - wrong * marks_per_wrong
             max_score = len(st.session_state.quiz_data) * marks_per_correct
             st.session_state.quiz_submitted = True
             st.success(f"🏆 Score: {raw_score} / {max_score} · (Correct: {correct} | Wrong: {wrong} | Unattempted: {len(st.session_state.quiz_data) - attempted})")
-            
+
             for idx, item in enumerate(st.session_state.quiz_data):
                 chosen = st.session_state.get(f"auronix_q_{idx}")
                 clean_ans = clean_math_formatting(str(item["answer"]))
@@ -839,7 +898,6 @@ STUDY NOTES:
                 if item.get("explanation"):
                     st.info("💡 **Solution:** " + clean_math_formatting(str(item["explanation"])))
 
-    # SHOW SUBJECTIVE TEST
     if st.session_state.qa_output:
         st.markdown("#### 📖 Subjective Questions & Marking Scheme")
         st.markdown(st.session_state.qa_output)
@@ -862,7 +920,7 @@ STUDY NOTES:
 {st.session_state.study_notes[:10000]}
 """
         with st.spinner("Making topic-locked flashcards from your notes..."):
-            raw, err = generate_ai(f_prompt, json_mode=True, temperature=0.2)
+            raw, err = generate_ai(f_prompt, json_mode=True, temperature=0.2, max_tokens=4096)
             if raw:
                 try:
                     clean_raw = re.sub(r"```(?:json)?|```", "", raw).strip()
@@ -872,45 +930,10 @@ STUDY NOTES:
                     st.error("JSON Parsing Error. Please tap Generate once more.")
             else:
                 st.error(err)
-                
+
     if st.session_state.flashcards:
         for i, card in enumerate(st.session_state.flashcards):
             clean_front = clean_math_formatting(str(card.get("front", "")))
             clean_back = clean_math_formatting(str(card.get("back", "")))
             with st.expander(f"🃏 Card {i+1}: {clean_front}"):
                 st.markdown(clean_back)
-
-# ==========================================
-# 🤖 EMO ROBOT BUDDY (PRECISION MODE — UNTOUCHED!)
-# ==========================================
-with st.popover(" "):
-    st.markdown("<h4 style='color:#00E5FF'>🤖 Auronix Precision Buddy</h4>", unsafe_allow_html=True)
-    if not st.session_state.study_notes:
-        st.info("Pehle notes generate kar, fir doubt poochh!")
-    else:
-        doubt = st.text_input("Ask any exact doubt from these notes:")
-        if st.button("💡 Solve Doubt (Precision Mode)", use_container_width=True) and doubt.strip():
-            b_prompt = f"""
-You are a strict, 100% accurate doubt-solving mentor for {st.session_state.selected_exam}.
-Language: {st.session_state.selected_lang}.
-
-RULES (ZERO FLUCTUATION / ZERO GUESSING):
-1. First check the STUDY NOTES below for the exact concept/formula.
-2. Answer the student's doubt directly in 3 clean parts:
-   - **🎯 Direct Answer:** (Exact, crisp 1-2 line answer)
-   - **🧠 Step-by-Step Logic / Formula:** (Clear reasoning with proper $ math)
-   - **💡 Logical Real-Life Analogy:** (1-line scientifically accurate analogy)
-3. Do NOT ramble, do NOT hallucinate, and do NOT give illogical jokes.
-
-STUDY NOTES:
-{st.session_state.study_notes[:10000]}
-
-STUDENT DOUBT:
-{doubt.strip()}
-"""
-            with st.spinner("Solving with 100% precision..."):
-                ans, err = generate_ai(b_prompt, temperature=0.05)
-                if ans:
-                    st.success(clean_math_formatting(ans))
-                else:
-                    st.error(err)
