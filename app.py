@@ -1,4 +1,4 @@
-"""Auronix learningAI V4.2 (Verified Final Build) — Zero-Truncation, Math-Safe Calligraphy Export & Precision Doubt Solver"""
+"""Auronix learningAI V4.2 (Verified Final Build + Strict Hinglish Enforcement)"""
 import json
 import os
 import re
@@ -43,6 +43,23 @@ def get_secret(name: str) -> str:
 
 GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
 GROQ_API_KEY = get_secret("GROQ_API_KEY")
+
+# ==========================================
+# 🌐 STRICT LANGUAGE ENFORCEMENT RULE (ONLY NEW ADDITION)
+# ==========================================
+def get_language_rule(lang_choice: str) -> str:
+    if "Hinglish" in lang_choice:
+        return (
+            "STRICT HINGLISH LANGUAGE RULE (MANDATORY — DO NOT IGNORE): "
+            "1. Keep ONLY exact NCERT definitions, scientific/technical keywords, and mathematical formulas in English for exam accuracy. "
+            "2. Write ALL explanations, concept breakdowns, logical real-world applications, step-by-step solutions, summary points, and exam traps in natural, serious Roman-script Hinglish "
+            "(Hindi written in English alphabets mixed with English technical terms — e.g., 'Yahan dhyan dena, jab net external torque zero hota hai tab angular momentum conserved rehta hai.'). "
+            "3. NEVER slip into 100% pure English for explanations. Keep the tone serious, authoritative, and mentor-like (no childish jokes)."
+        )
+    return (
+        "STRICT ENGLISH LANGUAGE RULE (MANDATORY): "
+        "Write the entire response in crisp, formal, 100% exam-ready English."
+    )
 
 # ==========================================
 # 🎨 CLEAN, SERIOUS EXAM-GRADE UI & HEADINGS CSS
@@ -393,6 +410,7 @@ def generate_ai(prompt: str, json_mode: bool = False, temperature: float = 0.2, 
     sys_msg = (
         "You are Auronix learningAI, India's premier Board, JEE Advanced, and NEET ranker-producing educator. "
         "Maintain an authoritative, serious, topper-handbook tone. Never truncate or leave sections incomplete. "
+        "Strictly follow the user's requested language rule (Hinglish vs English). "
         "Use $ for inline math and $$ for block math. NEVER use \\( or \\) or \\[ or \\]."
     )
 
@@ -610,6 +628,7 @@ if source_text:
     st.session_state.selected_basis = content_basis
     st.session_state.selected_lang = lang_choice
 
+    lang_rule = get_language_rule(lang_choice)
     rigor_instruction = EXAM_RIGOR_MAP[target_exam]
     if board_stream:
         rigor_instruction += f" | BOARD TRACK ALIGNMENT: Strictly align examples, traps, and PYQs with {board_stream}."
@@ -641,6 +660,8 @@ if source_text:
 You are Auronix learningAI V4.2, India's premier ranker-producing educator.
 Write SERIOUS, EXAM-GRADE, TOPPER-HANDBOOK NOTES (no childish jokes or casual filler).
 CRITICAL COMPLETION RULE: You MUST complete ALL 6 SECTIONS cleanly from Section 1 through Section 6 without cutting off mid-sentence! Keep explanations dense, crisp, and high-yield so every single section finishes completely.
+
+{lang_rule}
 
 USER SELECTION (FOLLOW 100% STRICTLY):
 - Target Exam Level: {effective_exam_label}
@@ -689,6 +710,7 @@ MATH RULE: Use $ for inline math and $$ for block math. NEVER use \\( or \\).
                 cont_prompt = f"""
 The following topper notes were cut off before finishing all 6 sections.
 Continue seamlessly from the exact last line below and COMPLETE the remaining sections (up to `## 6. 🏁 Finish`, including Section 4 Summary and Section 5 Real PYQ Bank if missing). Do NOT repeat what is already written.
+{lang_rule}
 
 ALREADY WRITTEN NOTES (END PART):
 {notes[-3500:]}
@@ -751,7 +773,7 @@ if st.session_state.study_notes:
             else:
                 b_prompt = f"""
 You are a strict, 100% accurate academic doubt-solving mentor for {st.session_state.selected_exam}.
-Language: {st.session_state.selected_lang}.
+{get_language_rule(st.session_state.selected_lang)}
 
 RULES (ZERO FLUCTUATION / ZERO GUESSING):
 1. Check the STUDY NOTES below for the exact concept/formula.
@@ -798,10 +820,13 @@ STUDENT DOUBT:
         st.session_state.quiz_data = None
         st.session_state.quiz_submitted = False
         st.session_state.qa_output = ""
+        active_lang_rule = get_language_rule(st.session_state.selected_lang)
 
         if test_format == "Interactive MCQs":
             qprompt = f"""
 You MUST create {num_q} CHALLENGING, RANKER-LEVEL exam MCQs STRICTLY AND EXCLUSIVELY from the STUDY NOTES provided below.
+
+{active_lang_rule}
 
 CRITICAL DIFFICULTY & QUALITY RULES:
 1. Every single question MUST test deep understanding, traps, formulas, or facts present in the STUDY NOTES below.
@@ -810,7 +835,7 @@ CRITICAL DIFFICULTY & QUALITY RULES:
    - If JEE Advanced: Include brutal multi-concept analytical traps, limiting cases, and non-trivial numericals from the notes.
    - If JEE Main: Include tricky conceptual & calculation-based PYQ-style MCQs from the notes.
    - If Boards: Include CBSE Class 11/12 competency, case-based, and Assertion-Reason MCQs from the notes.
-3. Language: {st.session_state.selected_lang}.
+3. Keep questions & options in clear exam-ready English, and write the "explanation" strictly following the language rule above.
 4. Return ONLY a valid JSON object with key "questions", a list of objects each having:
    - "q": Question string
    - "options": List of EXACTLY 4 option strings
@@ -840,7 +865,7 @@ STUDY NOTES:
             qprompt = f"""
 Create {num_q} high-standard subjective exam questions (Short Answer, Derivations, Case-Study & Long Answer) with step-by-step Marking Scheme answers STRICTLY from the STUDY NOTES below.
 Target Level: {st.session_state.selected_exam} ({diff_level}).
-Language: {st.session_state.selected_lang}.
+{active_lang_rule}
 
 STUDY NOTES:
 {st.session_state.study_notes[:12000]}
@@ -912,7 +937,7 @@ STUDY NOTES:
 Respond ONLY with valid JSON.
 Create exactly 10 high-yield revision flashcards STRICTLY AND EXCLUSIVELY from the STUDY NOTES below.
 Target Exam: {st.session_state.selected_exam}.
-Language: {st.session_state.selected_lang}.
+{get_language_rule(st.session_state.selected_lang)}
 Return JSON format EXACTLY like this:
 {{"cards": [{{"front": "Crisp question / term / formula prompt from notes", "back": "Crisp answer / trick from notes"}}]}}
 
